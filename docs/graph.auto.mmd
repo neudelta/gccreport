@@ -1,0 +1,38 @@
+---
+config:
+  flowchart:
+    curve: linear
+---
+graph TD;
+	__start__([<p>__start__</p>]):::first
+	prepare(prepare)
+	serper(serper)
+	x(x)
+	sites(sites)
+	serper_retry(serper_retry)
+	evaluate(evaluate)
+	search_failed(search_failed)
+	report(report)
+	skip(skip)
+	email(email)
+	__end__([<p>__end__</p>]):::last
+	__start__ --> prepare;
+	evaluate -.-> report;
+	evaluate -.-> search_failed;
+	evaluate -.-> serper_retry;
+	prepare --> serper;
+	prepare --> sites;
+	prepare --> x;
+	report -.-> email;
+	report -.-> skip;
+	serper --> evaluate;
+	serper_retry --> evaluate;
+	sites --> evaluate;
+	x --> evaluate;
+	email --> __end__;
+	search_failed --> __end__;
+	skip --> __end__;
+	classDef default fill:#f2f0ff,line-height:1.2
+	classDef first fill-opacity:0
+	classDef last fill:#bfb6fc
+
