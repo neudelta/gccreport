@@ -55,7 +55,8 @@ will get a "no new GCC activity" email every 5 minutes (that is the requested be
 
 ## Understand the code / graph
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for Mermaid diagrams (graph, evaluate funnel, run sequence,
+New to the code? Start with the plain-English [docs/CODE_WALKTHROUGH.md](docs/CODE_WALKTHROUGH.md) (also as a
+styled [HTML page](docs/CODE_WALKTHROUGH.html) to open locally). See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for Mermaid diagrams (graph, evaluate funnel, run sequence,
 database) and a module-by-module walkthrough. `python main.py --graph` prints LangGraph's own Mermaid output.
 
 ## LangSmith tracing
