@@ -468,7 +468,8 @@ email includes them and marks them as reported.
 
 | Rule | Where | Why |
 |---|---|---|
-| A "new GCC" is new once, ever | unique `event_key` | never report the same GCC twice |
+| A "new GCC" is new once, ever | unique `event_key` + `same_event` | never report the same GCC twice |
+| One event, one row: same city + same company (or brand) within 7 days, whatever the label | `models.same_event`, used when merging, saving and cleaning up | name variants ("MetLife" / "MetLife GOSC Pvt Ltd") and new-vs-expansion labels |
 | Expansions can recur, not the same story | `event_key` includes the month | a later expansion is news |
 | Only the window (14 days weekly, 3 daily), plus late coverage | `precheck` | currency |
 | Old news is not new | stale check | late articles about earlier events |
@@ -528,6 +529,7 @@ dashboard.
 | `--refresh` | daily refresh (save new GCCs, no email) |
 | `--backfill 2026 [--dry-run] [--no-google]` | load a year |
 | `--fix-sectors` | re-classify "Other" sectors |
+| `--dedupe-db [--dry-run]` | merge stored rows that describe the same GCC event |
 | `--dashboard [--port 8000]` | start the dashboard |
 | `--schedule --daily 07:00 --cron "mon 09:00"` | run both jobs in one process |
 | `--schedule [--interval-min 5]` | test loop |

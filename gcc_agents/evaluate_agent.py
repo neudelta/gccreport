@@ -23,7 +23,7 @@ from pydantic import BaseModel, Field
 from . import db
 from .config import Settings
 from .llm import chat
-from .models import GCC, SECTORS, canonical_url
+from .models import SAME_EVENT_DAYS, GCC, SECTORS, canonical_url, same_company, same_event, same_group  # noqa: F401
 from .tracing import map_in_context, trace_tool
 
 USER_AGENT = (
@@ -111,28 +111,6 @@ def is_official_domain(url: str, company_key: str) -> bool:
     return is_pr_wire_or_gov(host) or host_matches_company(host, company_key)
 
 
-def same_company(a: str, b: str) -> bool:
-    """Company keys that name the same firm: equal, or one is a leading-word prefix of the other
-    ("rsm" vs "rsm us integrated services"). Single generic words never match on their own."""
-    if a == b:
-        return True
-    ta, tb = a.split(), b.split()
-    short, long_ = (ta, tb) if len(ta) <= len(tb) else (tb, ta)
-    if not short or len(short[0]) < 3 or short[0] in _GENERIC_FIRST_WORDS:
-        return False
-    return long_[: len(short)] == short
-
-
-def same_group(a: str, b: str) -> bool:
-    """Same leading brand word, even a short one ("lg soft" / "lg electronics"). Only used together with the same
-    city and a 3-day window, where two different firms sharing a first word is very unlikely."""
-    ta, tb = a.split(), b.split()
-    return bool(ta and tb) and ta[0] == tb[0] and ta[0] not in _GENERIC_FIRST_WORDS
-
-
-_GENERIC_FIRST_WORDS = {"bank", "first", "national", "united", "american", "general", "global", "new", "royal", "state"}
-
-
 def merge_candidates(cands: list[GCC]) -> list[GCC]:
     """Merge cross-source duplicates (same company+city, dates within 14 days) into one item."""
     def rank(c: GCC) -> int:
@@ -149,7 +127,7 @@ def merge_candidates(cands: list[GCC]) -> list[GCC]:
             if same_company(m.company_key, c.company_key) and gap <= 14:
                 target = m
                 break
-            if same_group(m.company_key, c.company_key) and gap <= 3:
+            if same_group(m.company_key, c.company_key) and gap <= SAME_EVENT_DAYS:
                 target = m
                 break
         if target is None:

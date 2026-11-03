@@ -65,6 +65,58 @@ def canonical_url(url: str) -> str:
     return urlunsplit((parts.scheme.lower() or "https", host, path, urlencode(query), ""))
 
 
+# ---------------------------------------------------------------- "is this the same GCC event?"
+_GENERIC_FIRST_WORDS = {"bank", "first", "national", "united", "american", "general", "global", "new", "royal", "state"}
+SAME_EVENT_DAYS = 7  # two reports of one company in one city within this many days describe one event
+
+
+def same_company(a: str, b: str) -> bool:
+    """Company keys that name the same firm: equal, or one is a leading-word prefix of the other
+    ("rsm" vs "rsm us integrated services", "metlife" vs "metlife operations support"). A single generic word
+    never matches on its own."""
+    if a == b:
+        return True
+    ta, tb = a.split(), b.split()
+    short, long_ = (ta, tb) if len(ta) <= len(tb) else (tb, ta)
+    if not short or len(short[0]) < 3 or short[0] in _GENERIC_FIRST_WORDS:
+        return False
+    return long_[: len(short)] == short
+
+
+def same_group(a: str, b: str) -> bool:
+    """Same leading brand word, even a short one ("lg soft" / "lg electronics"). Only used with the same city and a
+    few days apart, where two different firms sharing a first word is very unlikely."""
+    ta, tb = a.split(), b.split()
+    return bool(ta and tb) and ta[0] == tb[0] and ta[0] not in _GENERIC_FIRST_WORDS
+
+
+def same_event(company_a: str, city_a: str, type_a: str, date_a, company_b: str, city_b: str, type_b: str,
+               date_b) -> bool:
+    """One rule for "these two records describe the same GCC event", used when merging candidates, when checking
+    the database before saving, and when cleaning up the database.
+
+    Same city, and:
+      - the same company within SAME_EVENT_DAYS, whatever each source called it (new GCC vs expansion), or
+      - the same brand family (LG Soft / LG Electronics) within SAME_EVENT_DAYS, or
+      - the same company with a "new GCC" on both sides, at any date (a GCC is new once), or
+      - the same company with an expansion on both sides in the same month.
+    Takes normalised keys (company_key, city_key)."""
+    if city_a != city_b or not city_a:
+        return False
+    sc = same_company(company_a, company_b)
+    if not sc and not same_group(company_a, company_b):
+        return False
+    gap = abs((date_a - date_b).days) if date_a and date_b else None
+    if gap is not None and gap <= SAME_EVENT_DAYS:
+        return True
+    if not sc:
+        return False
+    if type_a == type_b == "new_gcc":
+        return True
+    return (type_a == type_b == "expansion" and date_a is not None and date_b is not None
+            and (date_a.year, date_a.month) == (date_b.year, date_b.month))
+
+
 class ExtractedItem(BaseModel):
     """Schema handed to the LLM (plain strings only — dates are parsed afterwards)."""
 

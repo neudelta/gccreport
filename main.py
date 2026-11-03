@@ -10,6 +10,7 @@
   python main.py --refresh                 (daily: add new GCCs to the database, no email)
   python main.py --schedule --daily 07:00 --cron "mon 09:00"
   python main.py --dashboard [--port 8000]
+  python main.py --dedupe-db [--dry-run]
   python main.py --why "TIAA, Havells"     (what happened to these companies in the last run)
   python main.py --reset-db
 """
@@ -163,6 +164,8 @@ def main() -> int:
                     help="rebuild the last sent report from the database and email it again (uses the current layout)")
     ap.add_argument("--backfill", type=int, metavar="YEAR",
                     help="load that year's GCCs (GCC Index + month-by-month Google) into the database")
+    ap.add_argument("--dedupe-db", action="store_true",
+                    help="merge stored rows that describe the same GCC event (add --dry-run to only list them)")
     ap.add_argument("--fix-sectors", action="store_true", help="re-classify stored rows whose sector is 'Other'")
     ap.add_argument("--no-google", action="store_true", help="with --backfill: GCC Index only")
     ap.add_argument("--dashboard", action="store_true", help="run the LTM dashboard at http://127.0.0.1:8000")
@@ -206,6 +209,14 @@ def main() -> int:
 
     if args.why:
         return explain(args.why)
+
+    if args.dedupe_db:
+        with db.connect() as conn:
+            merged = db.merge_duplicates(conn, dry_run=args.dry_run)
+        for kept, removed in merged:
+            print(f"  keep {kept}\n    {'would merge' if args.dry_run else 'merged'} {removed}")
+        print(f"{len(merged)} duplicate(s) {'found (dry run, nothing changed)' if args.dry_run else 'merged'}")
+        return 0
 
     if args.fix_sectors:
         from gcc_agents import backfill

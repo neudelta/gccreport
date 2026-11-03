@@ -82,3 +82,53 @@ def test_generic_taglines_are_not_companies(settings):
     assert is_generic_name("transport and logistics")                       # "Global Transport and Logistics"
     assert not is_generic_name("dsv") and not is_generic_name("clean harbors") and not is_generic_name("us bancorp")
     assert "not a company" in precheck(make_gcc(company="Global Transport and Logistics"), TODAY, settings)
+
+
+
+def test_same_event_rule_covers_the_duplicates_found_on_3_nov():
+    from datetime import date
+    from gcc_agents.models import normalize_company, same_event
+
+    def same(a, at, ad, b, bt, bd, city="noida"):
+        return same_event(normalize_company(a), city, at, date.fromisoformat(ad),
+                          normalize_company(b), city, bt, date.fromisoformat(bd))
+
+    assert same("MetLife", "new_gcc", "2026-10-27", "MetLife Global Operations Support Center Private Limited",
+                "new_gcc", "2026-10-24")
+    assert same("LG Soft", "new_gcc", "2026-10-27", "LG Electronics", "new_gcc", "2026-10-24")
+    assert same("Truist", "expansion", "2026-10-21", "Truist Financial Corporation", "expansion", "2026-10-21")
+    assert same("SonicWall", "new_gcc", "2026-10-26", "SonicWall", "expansion", "2026-10-23")   # label differs
+    assert same("RSM US", "new_gcc", "2026-10-29", "RSM", "expansion", "2026-10-29")
+    # still different events
+    assert not same("LG Soft", "new_gcc", "2026-10-27", "LG Electronics", "new_gcc", "2026-08-01")  # brand, far apart
+    assert not same("Acme", "expansion", "2026-03-01", "Acme", "expansion", "2026-09-01")            # later expansion
+    assert not same("Bank of America", "new_gcc", "2026-10-01", "Bank of India", "new_gcc", "2026-10-02")
+    assert not same_event("rsm", "hyderabad", "new_gcc", date(2026, 10, 29), "rsm", "bengaluru", "new_gcc",
+                          date(2026, 10, 29))                                                       # other city
+
+
+def test_database_check_and_cleanup_use_the_same_rule():
+    from datetime import date, datetime
+    from gcc_agents import db
+    with db.connect() as conn:
+        db.save_report(conn, window_start=date(2026, 10, 19), window_end=date(2026, 11, 2), email_status="sent",
+                       sent_at=datetime.now(), html_path=None, source_status={},
+                       items=[make_gcc(company="MetLife", city="Noida", event_date=date(2026, 10, 27),
+                                       press_release_url="https://m.example/1")])
+        later = make_gcc(company="MetLife Global Operations Support Center Private Limited",
+                         city="Gautam Buddh Nagar", event_date=date(2026, 10, 24), press_release_url="")
+        assert db.is_duplicate(conn, later) and db.is_reported(conn, later)       # blocked at save time now
+        assert db.save_catalog(conn, [later]) == 0
+        # an older database that already holds both: clean-up keeps the emailed row and folds in the other
+        conn.execute("INSERT INTO gcc (company, company_key, city, city_key, event_type, status, event_date,"
+                     " event_key, first_reported_at, origin, source_urls, discovery_sources)"
+                     " VALUES ('MetLife GOSC Pvt Ltd', 'metlife gosc', 'Noida', 'noida', 'new_gcc', 'announced',"
+                     " '2026-10-24', 'metlife gosc|noida|new_gcc', '2026-11-03', 'backfill', '[\"https://x/1\"]',"
+                     " '[\"gccindex\"]')")
+        assert len(db.merge_duplicates(conn, dry_run=True)) == 1
+        assert conn.execute("SELECT COUNT(*) FROM gcc").fetchone()[0] == 2          # dry run changes nothing
+        merged = db.merge_duplicates(conn)
+        assert len(merged) == 1 and merged[0][0].startswith("MetLife (Noida")
+        row = conn.execute("SELECT company, report_id, discovery_sources, source_urls FROM gcc").fetchall()
+        assert len(row) == 1 and row[0]["company"] == "MetLife" and row[0]["report_id"] is not None
+        assert "gccindex" in row[0]["discovery_sources"] and "https://x/1" in row[0]["source_urls"]

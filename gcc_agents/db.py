@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Iterable, Optional
 
 from . import config
-from .models import GCC, LTMInsight, canonical_url, normalize_company
+from .models import GCC, LTMInsight, canonical_url, normalize_company, same_event
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS reports (
@@ -87,20 +87,70 @@ def connect(path: Optional[Path] = None):
         conn.close()
 
 
-def is_duplicate(conn: sqlite3.Connection, item: GCC) -> bool:
-    if conn.execute("SELECT 1 FROM gcc WHERE event_key = ?", (item.event_key,)).fetchone():
-        return True
+def find_same_event(conn: sqlite3.Connection, item: GCC):
+    """The stored row describing the same event as `item` (name variants and new-vs-expansion labels included)."""
+    row = conn.execute("SELECT * FROM gcc WHERE event_key = ?", (item.event_key,)).fetchone()
+    if row:
+        return row
     url = canonical_url(item.press_release_url)
-    return bool(url and conn.execute("SELECT 1 FROM gcc WHERE press_release_url = ?", (url,)).fetchone())
+    if url:
+        row = conn.execute("SELECT * FROM gcc WHERE press_release_url = ?", (url,)).fetchone()
+        if row:
+            return row
+    for r in conn.execute("SELECT * FROM gcc WHERE city_key = ?", (item.city_key,)):
+        d = date.fromisoformat(r["event_date"]) if r["event_date"] else None
+        if same_event(item.company_key, item.city_key, item.event_type, item.event_date,
+                      r["company_key"], r["city_key"], r["event_type"], d):
+            return r
+    return None
+
+
+def is_duplicate(conn: sqlite3.Connection, item: GCC) -> bool:
+    return find_same_event(conn, item) is not None
 
 
 def is_reported(conn: sqlite3.Connection, item: GCC) -> bool:
     """Already emailed (or historical backfill) - as opposed to collected by the daily refresh and still pending."""
-    sql = "SELECT 1 FROM gcc WHERE {} AND (report_id IS NOT NULL OR origin = 'backfill')"
-    if conn.execute(sql.format("event_key = ?"), (item.event_key,)).fetchone():
-        return True
-    url = canonical_url(item.press_release_url)
-    return bool(url and conn.execute(sql.format("press_release_url = ?"), (url,)).fetchone())
+    row = find_same_event(conn, item)
+    return bool(row and (row["report_id"] is not None or row["origin"] == "backfill"))
+
+
+def merge_duplicates(conn: sqlite3.Connection, dry_run: bool = False) -> list[tuple[str, str]]:
+    """Merge stored rows that describe the same event (same rule as everywhere else).
+
+    The row kept is the one already emailed, else the one with an LTM analysis, else the earliest stored. Links,
+    sources, scale and analysis from the other row are folded in; the other row is deleted. Returns
+    [(kept, removed)] descriptions."""
+    rows = conn.execute("SELECT * FROM gcc ORDER BY (report_id IS NULL), (insight IS NULL), id").fetchall()
+    kept: list[dict] = []
+    merged: list[tuple[str, str]] = []
+    for r in rows:
+        d = date.fromisoformat(r["event_date"]) if r["event_date"] else None
+        twin = next((k for k in kept if same_event(k["company_key"], k["city_key"], k["event_type"], k["_date"],
+                                                   r["company_key"], r["city_key"], r["event_type"], d)), None)
+        if twin is None:
+            kept.append({**dict(r), "_date": d})
+            continue
+        merged.append((f"{twin['company']} ({twin['city']}, {twin['event_type']}, {twin['event_date']})",
+                       f"{r['company']} ({r['city']}, {r['event_type']}, {r['event_date']}, {r['origin']})"))
+        if dry_run:
+            continue
+        urls = list(dict.fromkeys(json.loads(twin["source_urls"] or "[]") + json.loads(r["source_urls"] or "[]")))
+        srcs = list(dict.fromkeys(json.loads(twin["discovery_sources"] or "[]")
+                                  + json.loads(r["discovery_sources"] or "[]")))
+        fill = {k: twin[k] or r[k] for k in ("headcount", "summary", "insight", "source_url", "state")}
+        if not twin["source_url"] and r["source_url"]:
+            fill["source_kind"] = r["source_kind"]
+        conn.execute("DELETE FROM gcc WHERE id = ?", (r["id"],))
+        conn.execute(
+            "UPDATE gcc SET source_urls = ?, discovery_sources = ?, headcount = ?, summary = ?, insight = ?,"
+            " source_url = ?, state = ?" + (", source_kind = ?" if "source_kind" in fill else "") + " WHERE id = ?",
+            (json.dumps(urls), json.dumps(srcs), fill["headcount"], fill["summary"], fill["insight"],
+             fill["source_url"], fill["state"], *([fill["source_kind"]] if "source_kind" in fill else []),
+             twin["id"]),
+        )
+        twin.update(source_urls=json.dumps(urls), discovery_sources=json.dumps(srcs), **fill)
+    return merged
 
 
 def pending_unreported(conn: sqlite3.Connection, since: date) -> list[GCC]:

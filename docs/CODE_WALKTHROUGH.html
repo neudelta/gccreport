@@ -683,8 +683,13 @@ email includes them and marks them as reported.</p>
 <tbody>
 <tr>
 <td>A "new GCC" is new once, ever</td>
-<td>unique <code>event_key</code></td>
+<td>unique <code>event_key</code> + <code>same_event</code></td>
 <td>never report the same GCC twice</td>
+</tr>
+<tr>
+<td>One event, one row: same city + same company (or brand) within 7 days, whatever the label</td>
+<td><code>models.same_event</code>, used when merging, saving and cleaning up</td>
+<td>name variants ("MetLife" / "MetLife GOSC Pvt Ltd") and new-vs-expansion labels</td>
 </tr>
 <tr>
 <td>Expansions can recur, not the same story</td>
@@ -834,6 +839,10 @@ dashboard.</p>
 <tr>
 <td><code>--fix-sectors</code></td>
 <td>re-classify "Other" sectors</td>
+</tr>
+<tr>
+<td><code>--dedupe-db [--dry-run]</code></td>
+<td>merge stored rows that describe the same GCC event</td>
 </tr>
 <tr>
 <td><code>--dashboard [--port 8000]</code></td>
