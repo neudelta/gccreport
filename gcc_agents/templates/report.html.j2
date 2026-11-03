@@ -143,12 +143,15 @@
   {% endif %}
 
   {# ---------- footer ---------- #}
+  {% if already_reported_count %}
   <tr><td class="px" style="padding:20px 28px 26px 28px;">
     <div style="font-size:11px;line-height:1.6;color:#8C939D;">
-      {% if already_reported_count %}{{ already_reported_count }} item(s) seen this period were already in an earlier brief and are not repeated.<br>{% endif %}
-      Internal &middot; Prepared for LTM leadership &middot; AI-assisted from public sources; verify before client outreach.
+      {{ already_reported_count }} item(s) seen this period were already in an earlier brief and are not repeated.
     </div>
   </td></tr>
+  {% else %}
+  <tr><td style="padding:12px;font-size:1px;line-height:1px;">&nbsp;</td></tr>
+  {% endif %}
 </table>
 </td></tr></table>
 </body></html>

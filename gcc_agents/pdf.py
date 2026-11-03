@@ -8,7 +8,7 @@ import io
 FOOTER = """<div style="width:100%;font-family:'Segoe UI',Helvetica,Arial,sans-serif;font-size:7.5pt;color:#8C939D;
 padding:0 15mm;display:flex;justify-content:space-between;">
 <span><b style="color:#C2391F;letter-spacing:.5px;">LTM</b>&nbsp; GCC Origin &middot; {label}</span>
-<span>Internal &middot; page <span class="pageNumber"></span> of <span class="totalPages"></span></span></div>"""
+<span>Page <span class="pageNumber"></span> of <span class="totalPages"></span></span></div>"""
 
 
 def render_pdf(body_html: str, cover_html: str = "", footer_label: str = "India GCC Weekly Intel Report") -> bytes:

@@ -26,7 +26,8 @@ def test_report_with_items(settings, monkeypatch):
     assert "Acme Corp" in rep.html and "Beta Bank" in rep.html
     assert 'href="https://a.com/1"' in rep.pdf_html                        # source links live in the briefing
     assert "2 item(s) seen this period were already in an earlier brief" in rep.html
-    for gone in ("Sources checked", "Sources with issues", "best available source", "moneycontrol", "gccindex"):
+    for gone in ("Sources checked", "Sources with issues", "best available source", "moneycontrol", "gccindex",
+                 "Internal", "AI-assisted", "verify before"):
         assert gone not in rep.html and gone not in rep.text
     assert "Acme Corp" in rep.text
 
