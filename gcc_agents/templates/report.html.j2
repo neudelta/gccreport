@@ -5,6 +5,9 @@
 {%- elif fit == 'Low' -%}<span style="display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700;color:#3D434C;background:#E5E7EB;white-space:nowrap;">Low</span>
 {%- else -%}<span style="font-size:12px;color:#8C939D;">&ndash;</span>{%- endif -%}
 {%- endmacro -%}
+{%- macro row_pill(fit) -%}
+{%- if fit in ('High', 'Medium', 'Low') -%}<span class="p p{{ fit[0] }}">{{ fit }}</span>{%- else -%}<span class="pN">&ndash;</span>{%- endif -%}
+{%- endmacro -%}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -13,7 +16,16 @@
 <meta name="x-apple-disable-message-reformatting">
 <meta name="color-scheme" content="light">
 <title>{{ subject }}</title>
-<style>
+<style>{% if slim %}
+  .ov td{padding:11px 10px;vertical-align:top;border-bottom:1px solid #E5E7EB}
+  .ov tr.z td{background:#F7F8FA}
+  .co{font-weight:700;font-size:14px;color:#0B0B0C;word-break:break-word}
+  .mt{font-size:12px;color:#5B6470;margin-top:2px}
+  .tn{color:#C2391F;font-weight:700}.tx{color:#0B0B0C;font-weight:700}
+  .sc{color:#3D434C}
+  .p{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700;white-space:nowrap}
+  .pH{color:#FFFFFF;background:#F2553D}.pM{color:#FFFFFF;background:#1F2329}.pL{color:#3D434C;background:#E5E7EB}
+  .pN{color:#8C939D;font-size:12px}{% endif %}
   @media only screen and (max-width: 520px) {
     .wrap { padding: 0 !important; }
     .px { padding-left: 16px !important; padding-right: 16px !important; }
@@ -80,7 +92,9 @@
         <th align="left" class="hide-sm" style="padding:10px 10px;font-weight:600;">Sector</th>
         <th align="left" style="padding:10px 10px;font-weight:600;">LTM fit</th>
       </tr>
-      {% for it in email_items %}
+      {% if slim %}{% for it in email_items %}
+<tr{% if loop.index is even %} class="z"{% endif %}><td><div class="co">{{ it.company }}</div><div class="mt">{% if it.event_type == 'new_gcc' %}<b class="tn">New GCC</b>{% else %}<b class="tx">Expansion</b>{% endif %} &middot; {{ it.event_date.strftime('%d %b') if it.event_date else '' }}{% if it.status != 'opened' %} &middot; announced{% endif %}</div></td><td>{{ it.city }}</td><td class="hide-sm sc">{{ it.sector }}</td><td>{{ row_pill(it.insight.fit if it.insight else None) }}</td></tr>
+      {% endfor %}{% else %}{% for it in email_items %}
       <tr style="border-bottom:1px solid #E5E7EB;{% if loop.index is even %}background:#F7F8FA;{% endif %}">
         <td valign="top" style="padding:11px 10px;word-break:break-word;">
           <div style="font-weight:700;font-size:14px;color:{{ INK }};">{{ it.company }}</div>
@@ -93,7 +107,7 @@
         <td valign="top" class="hide-sm" style="padding:11px 10px;color:#3D434C;">{{ it.sector }}</td>
         <td valign="top" style="padding:11px 10px;">{{ fit_pill(it.insight.fit if it.insight else None) }}</td>
       </tr>
-      {% endfor %}
+      {% endfor %}{% endif %}
       {% if more_count %}
       <tr><td colspan="4" style="padding:12px 10px;font-size:13px;color:#5B6470;">+ {{ more_count }} more in the attached briefing.</td></tr>
       {% endif %}

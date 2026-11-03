@@ -126,3 +126,21 @@ def test_port_check_explains_a_busy_port():
         msg = main.port_problem(port)                 # something that is not the dashboard holds the port
         assert f"Port {port} is used by another program" in msg and f"--port {port + 80}" in msg
     assert main.port_problem(port) == ""              # free again
+
+
+
+def test_reports_cover_the_full_filtered_list(client, monkeypatch):
+    """No caps: every GCC in the filter is analysed and listed in the email and the PDF profiles."""
+    from dashboard import app as dash
+    with db.connect() as conn:
+        db.save_catalog(conn, [make_gcc(company=f"Firm{n:02d}", city="Chennai", event_date=date(2026, 5, n % 28 + 1),
+                                        press_release_url=f"https://f.example/{n}") for n in range(45)])
+    sent = {}
+    monkeypatch.setattr(dash.email_agent, "send", lambda s, rep, recipients="": sent.update(rep=rep) or (True, "sent"))
+    r = client.post("/api/email", headers=H, json={"filters": {"month": "2026-05"}, "recipients": "a@ltm.com"})
+    assert r.status_code == 200
+    rep = sent["rep"]
+    assert all(f"Firm{n:02d}" in rep.html for n in range(45)) and "more in the attached" not in rep.html
+    assert rep.pdf_html.count('class="acct"') == 45                      # a profile for every GCC
+    assert 'class="co"' in rep.html                                      # dashboard emails use the slim rows
+    assert client.get("/api/gccs?month=2026-05&fit=none").json()["kpis"]["total"] == 0   # all analysed and saved

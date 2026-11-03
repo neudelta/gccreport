@@ -81,3 +81,27 @@ def test_source_host_is_short_and_only_for_news_and_posts():
     assert uk.source_host == "bbc.co.uk"
     assert make_gcc(source_kind="press_release").source_host == ""
     assert make_gcc(source_kind="company_post", source_url="https://www.linkedin.com/posts/x").source_host == ""
+
+
+
+def test_email_stays_under_gmail_clipping_for_large_lists(settings, monkeypatch):
+    """Dashboard (slim) emails: Gmail clips over ~102 KB; 250 GCCs must still fit, with every company listed."""
+    from datetime import date, timedelta
+    from conftest import FAKE_INSIGHT
+    items = [make_gcc(company=f"Global Company Number {n:03d}", city="Hyderabad", sector="Healthcare/Pharma",
+                      event_date=date(2026, 1, 1) + timedelta(days=n % 300), press_release_url=f"https://x.example/{n}",
+                      insight=FAKE_INSIGHT) for n in range(250)]
+    monkeypatch.setattr(report_agent, "executive_summary", lambda s, i: "Summary " * 80)
+    rep = report_agent.build(settings, items, date(2026, 1, 1), date(2026, 11, 3), 0, {}, make_pdf=False,
+                             email_limit=250, profile_limit=250, slim=True)
+    assert len(rep.html.encode()) < 100_000, len(rep.html.encode())
+    assert all(f"Global Company Number {n:03d}" in rep.html for n in range(250))
+    assert '<span class="p pH">High</span>' in rep.html and "\n    " not in rep.html   # compact rows, no indentation
+
+
+
+def test_weekly_report_keeps_its_original_markup(settings, monkeypatch):
+    """The slim layout is for dashboard emails only; the weekly report is unchanged."""
+    rep = _build(settings, [make_gcc(press_release_url="https://a.com/1")], monkeypatch=monkeypatch)
+    assert 'class="p pH"' not in rep.html and ".ov td{" not in rep.html and 'class="co"' not in rep.html
+    assert '<tr style="border-bottom:1px solid #E5E7EB;' in rep.html

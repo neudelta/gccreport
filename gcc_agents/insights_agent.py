@@ -93,7 +93,7 @@ def analyse(settings: Settings, item: GCC) -> LTMInsight:
     return _clean(result)
 
 
-def enrich(settings: Settings, items: list[GCC]) -> list[GCC]:
+def enrich(settings: Settings, items: list[GCC], max_workers: int = 4) -> list[GCC]:
     """Return the items with `insight` filled (items that already have one are left alone)."""
     def one(item: GCC) -> GCC:
         if item.insight is not None:
@@ -104,5 +104,5 @@ def enrich(settings: Settings, items: list[GCC]) -> list[GCC]:
             log.warning("insight failed for %s: %s", item.company, type(exc).__name__)
             return item
 
-    with ThreadPoolExecutor(max_workers=4) as pool:
+    with ThreadPoolExecutor(max_workers=max_workers) as pool:
         return map_in_context(pool, one, items)

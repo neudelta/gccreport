@@ -216,7 +216,8 @@
     <label for="m-to" style="font-weight:600">Recipients</label>
     <textarea id="m-to" placeholder="name@ltm.com, another@ltm.com"></textarea>
     <label style="display:flex;gap:8px;align-items:center;margin-top:8px;font-size:13px"><input type="checkbox" id="m-save" checked> Save as default recipients</label>
-    <p class="note">Sends the India GCC Report email with the India GCC Weekly Intel Report (PDF) attached, for the GCCs in the current filter. LTM analysis is generated first for up to 25 GCCs that don&rsquo;t have it yet, which can take a minute.</p>
+    <p class="note">Sends the India GCC Report email with the India GCC Weekly Intel Report (PDF) attached, covering every GCC in the current filter.</p>
+    <p class="note" id="m-analyse"></p>
     <div class="msg" id="m-msg" aria-live="polite"></div>
     <div class="foot"><button class="btn" data-close>Cancel</button><button class="btn primary" id="m-send">Send</button></div>
   </div>
@@ -445,12 +446,26 @@ async function busy(btn, label, fn) {
   const old = btn.innerHTML; btn.disabled = true; btn.innerHTML = `<span class="spin"></span> ${label}`;
   try { await fn(); } catch (e) { toast(e.message, 7000); } finally { btn.disabled = false; btn.innerHTML = old; }
 }
+// Reports analyse every GCC in the filter that has no LTM analysis yet (once; results are saved).
+function pendingAnalysis() { return state.items.filter((i) => !i.fit).length; }
+function analysisNote(n) {
+  if (!n) return "All GCCs in this filter already have their LTM analysis.";
+  const mins = Math.max(1, Math.ceil((n * 1.6) / 60));
+  return `${n} GCC${n === 1 ? "" : "s"} still need LTM analysis; this runs first (about ${mins} min) and is saved for next time.`;
+}
+function confirmBig() {
+  const n = pendingAnalysis();
+  return n <= 60 || confirm(`${analysisNote(n)}\n\nThis uses OpenAI and Google search credits. Continue?`);
+}
 function download(blob, name) { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); }
 $("#b-pdf").onclick = () => busy($("#b-pdf"), "Building briefing…", async () => {
   if (!state.items.length) throw new Error("No GCCs in the current filter");
+  if (!confirmBig()) return;
+  if (pendingAnalysis()) toast(analysisNote(pendingAnalysis()), 8000);
   const r = await api("/api/report.pdf?" + qs());
   const name = (r.headers.get("Content-Disposition") || "").match(/filename="([^"]+)"/)?.[1] || "India GCC Weekly Intel Report.pdf";
-  download(await r.blob(), name); toast("Briefing downloaded");
+  download(await r.blob(), name); toast("Report downloaded");
+  load();  // show the new LTM fit ratings
 });
 $("#b-csv").onclick = () => busy($("#b-csv"), "Exporting…", async () => {
   download(await (await api("/api/export.csv?" + qs())).blob(), "LTM_GCC_list.csv");
@@ -458,17 +473,19 @@ $("#b-csv").onclick = () => busy($("#b-csv"), "Exporting…", async () => {
 $("#b-email").onclick = async () => {
   $("#m-msg").textContent = ""; $("#m-msg").className = "msg";
   $("#mail-scope").textContent = `${state.items.length} GCCs in the current filter`;
+  $("#m-analyse").textContent = analysisNote(pendingAnalysis());
   try { $("#m-to").value = (await (await api("/api/recipients")).json()).recipients || ""; } catch {}
   open($("#mail")); $("#m-to").focus();
 };
 $("#m-send").onclick = () => busy($("#m-send"), "Sending…", async () => {
   const msg = $("#m-msg"); msg.className = "msg"; msg.textContent = "";
   if (!state.items.length) { msg.className = "msg err"; msg.textContent = "No GCCs in the current filter."; return; }
+  if (!confirmBig()) return;
   try {
     const r = await (await api("/api/email", { method: "POST", headers: HEAD,
       body: JSON.stringify({ filters: filters(), recipients: $("#m-to").value, save_default: $("#m-save").checked }) })).json();
     msg.className = "msg ok"; msg.textContent = `Sent to ${r.recipients.join(", ")}.`;
-    toast("Report emailed"); setTimeout(closeAll, 1800);
+    toast("Report emailed"); setTimeout(closeAll, 1800); load();
   } catch (e) { msg.className = "msg err"; msg.textContent = e.message; }
 });
 

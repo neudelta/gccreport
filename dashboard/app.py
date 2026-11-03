@@ -34,7 +34,7 @@ from gcc_agents import config, db, email_agent, insights_agent, report_agent, vi
 
 log = logging.getLogger("gcc")
 STATIC = Path(__file__).resolve().parent / "static"
-ANALYSE_LIMIT = 25  # reports analyse at most this many un-analysed GCCs on the fly (cost/time guard)
+ANALYSE_WORKERS = 8  # GCCs analysed in parallel when a report needs them
 RECIPIENTS_KEY = "dashboard_recipients"
 
 app = FastAPI(title="LTM GCC Radar", docs_url=None, redoc_url=None)
@@ -127,18 +127,18 @@ def _build_report(f: Filters):
         raise HTTPException(404, "no GCCs match these filters")
     items = [db.row_to_gcc(r) for r in rows]
     settings = config.get_settings()
-    # Analyse the most relevant un-analysed GCCs (new GCCs first, newest first), capped for cost and time.
-    todo = sorted([i for i in items if i.insight is None],
-                  key=lambda i: (i.event_type != "new_gcc", -(i.event_date.toordinal() if i.event_date else 0)))
-    todo = todo[:ANALYSE_LIMIT]
+    # Every GCC in the filter gets its LTM analysis (each GCC is analysed once; the result is saved).
+    todo = [i for i in items if i.insight is None]
     if todo:
-        done = insights_agent.enrich(settings, todo)
+        done = insights_agent.enrich(settings, todo, max_workers=ANALYSE_WORKERS)
         with db.connect() as conn:
             db.save_insights(conn, done)
         by_key = {i.event_key: i for i in done}
         items = [by_key.get(i.event_key, i) for i in items]
     start, end = _period(f, rows)
-    return settings, report_agent.build(settings, items, start, end, 0, {})
+    # the full filtered list: every GCC in the email table and a profile for each in the PDF
+    return settings, report_agent.build(settings, items, start, end, 0, {},
+                                        email_limit=len(items), profile_limit=len(items), slim=True)
 
 
 # ---------------------------------------------------------------- pages

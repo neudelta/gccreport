@@ -7,6 +7,7 @@
 """
 import base64
 import logging
+import re
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from typing import Optional
@@ -102,9 +103,12 @@ def build(
     make_pdf: bool = True,
     email_limit: int = 40,
     profile_limit: int = 40,
+    slim: bool = False,
 ) -> Report:
     """`email_limit` caps rows in the email table and `profile_limit` the PDF account profiles, so a whole-year
-    selection from the dashboard stays readable; the PDF overview table always lists every item."""
+    selection from the dashboard stays readable; the PDF overview table always lists every item.
+    `slim` (dashboard emails only) uses compact row markup so long lists stay under Gmail's clipping limit;
+    the weekly report keeps its original markup."""
     items = sorted(items, key=lambda i: (_fit_rank(i), i.event_type != "new_gcc",
                                          -(i.event_date.toordinal() if i.event_date else 0)))
     new_count = sum(i.event_type == "new_gcc" for i in items)
@@ -154,8 +158,10 @@ def build(
 
     html = _env.get_template("report.html.j2").render(
         subject=subject, preheader=preheader, top=top, pdf_title=PDF_TITLE, hero_src=f"cid:{HERO_CID}",
-        chart_src=f"cid:{CHART_CID}" if pie else "", has_pdf=pdf_bytes is not None, **common,
+        chart_src=f"cid:{CHART_CID}" if pie else "", has_pdf=pdf_bytes is not None, slim=slim, **common,
     )
+    if slim:
+        html = _compact(html)
 
     lines = [subject, "", summary, ""]
     for i in items:
@@ -174,6 +180,12 @@ def build(
     return Report(subject=subject, html=html, text="\n".join(lines), chart_png=pie,
                   chart_cid=CHART_CID if pie else None, images={HERO_CID: hero}, pdf=pdf_bytes,
                   pdf_name=f"{PDF_TITLE} {stamp}.pdf", pdf_html=pdf_html)
+
+
+def _compact(html: str) -> str:
+    """Drop indentation and blank lines from the email HTML (keeps one line break wherever there was whitespace,
+    so text never runs together). Keeps long lists under Gmail's ~102 KB clipping limit."""
+    return re.sub(r"\n[ \t]*(?:\n[ \t]*)*", "\n", html).strip()
 
 
 def preview_html(rep: Report) -> str:
