@@ -236,6 +236,8 @@ def main() -> int:
         print(f"backfill {args.backfill} ({res.start} to {res.end}): GCC Index rows {res.gccindex_rows}, "
               f"Google candidates {res.google_candidates}, kept {len(res.kept)}, rejected {len(res.rejected)}, "
               + ("dry run: see data/backfill_preview.csv" if args.dry_run else f"added {res.added} to the database"))
+        for s in res.skipped:
+            print(f"WARNING: skipped {s}. Set it and run the backfill again; existing GCCs are kept.")
         return 0
 
     if args.export_demo_db:

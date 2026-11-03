@@ -106,3 +106,12 @@ def test_one_new_gcc_per_company_and_city_prefers_gcc_index():
     assert kn[0].source_urls == ["https://news.example/kn-123456"]           # Google link folded in
     assert [i.event_date for i in out if i.company == "Starbucks"] == [date(2026, 3, 1)]   # earliest kept
     assert any(i.event_type == "expansion" for i in out)                     # expansions untouched
+
+
+
+def test_backfill_says_when_google_or_gcc_index_is_skipped(monkeypatch, settings):
+    settings.serper_key, settings.gccindex_user, settings.gccindex_pass = "", "", ""
+    monkeypatch.setattr(backfill, "_judge_google_only", lambda s, items: (items, []))
+    monkeypatch.setattr(backfill, "reclassify_sectors", lambda s: 0)
+    res = backfill.run(settings, 2026, today=date(2026, 11, 3))
+    assert any("SERPER_API_KEY" in s for s in res.skipped) and any("GCCINDEX" in s for s in res.skipped)

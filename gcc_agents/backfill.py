@@ -49,6 +49,7 @@ class BackfillResult:
     start: date
     end: date
     gccindex_rows: int = 0
+    skipped: list[str] = field(default_factory=list)  # sources that did not run, and why
     google_candidates: int = 0
     kept: list[GCC] = field(default_factory=list)
     rejected: list[dict] = field(default_factory=list)
@@ -221,6 +222,11 @@ def run(settings: Settings, year: int, today: Optional[date] = None, dry_run: bo
     res.gccindex_rows = len(candidates)
     log.info("backfill: GCC Index gave %d rows", len(candidates))
 
+    if not settings.gccindex_user or not settings.gccindex_pass:
+        res.skipped.append("GCC Index (GCCINDEX_USERNAME / GCCINDEX_PASSWORD not set in .env)")
+    if use_google and not settings.serper_key:
+        res.skipped.append("Google (SERPER_API_KEY not set in .env)")
+        log.warning("backfill: SERPER_API_KEY is not set - skipping the Google search, results will be incomplete")
     if use_google and settings.serper_key:
         for first, last in months(start, end):
             found = google_month(settings, first, last)

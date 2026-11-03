@@ -2,7 +2,9 @@
 .venv/
 __pycache__/
 *.pyc
-data/
+# local data stays out of git, except the GCC database (repo is private)
+data/*
+!data/gcc.db
 .pytest_cache/
 .claude/
 dist/
