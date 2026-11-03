@@ -1,68 +1,98 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GCC India Weekly - Code Walkthrough</title>
+<title>India GCC Intelligence - Code Walkthrough</title>
 <style>
-  :root { --bg:#f6f8fb; --card:#fff; --ink:#1c2733; --muted:#5b6b7c; --line:#e3e8ee; --accent:#12355b; --code:#eef2f7; }
-  @media (prefers-color-scheme: dark) { :root { --bg:#0f141a; --card:#171e26; --ink:#e6ebf1; --muted:#9aa7b4; --line:#2a3440; --accent:#7fb2ea; --code:#1f2933; } }
-  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.65 Segoe UI,Helvetica,Arial,sans-serif; }
-  main { max-width:900px; margin:0 auto; padding:24px 18px 80px; background:var(--card); }
-  h1 { font-size:2rem; color:var(--accent); line-height:1.25; }
-  h2 { margin-top:2.4em; padding-top:.6em; border-top:2px solid var(--line); color:var(--accent); }
-  h3 { margin-top:2em; } h4 { margin-top:1.5em; }
-  a { color:var(--accent); }
+  :root { --bg:#EEF0F3; --card:#fff; --ink:#0B0B0C; --muted:#5B6470; --line:#E5E7EB; --accent:#C2391F; --coral:#F2553D; --code:#F3F4F6; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#0f1114; --card:#17191E; --ink:#E6E8EB; --muted:#9AA1AB; --line:#2A2F36; --accent:#F2553D; --coral:#F2553D; --code:#1F2329; } }
+  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.65 "Segoe UI",Helvetica,Arial,sans-serif; }
+  header { background:#0B0B0C; color:#fff; padding:18px 24px; }
+  header .logo { font-size:28px; font-weight:800; color:#F2553D; letter-spacing:1px; }
+  header .t { font-size:12px; letter-spacing:2px; text-transform:uppercase; color:#F2553D; font-weight:700; margin-top:4px; }
+  main { max-width:920px; margin:0 auto; padding:24px 20px 80px; background:var(--card); }
+  h1 { font-size:2rem; line-height:1.25; margin-top:.3em; }
+  h2 { margin-top:2.4em; padding-top:.6em; border-top:3px solid var(--coral); }
+  h3 { margin-top:2em; } a { color:var(--accent); }
   code { background:var(--code); padding:.12em .35em; border-radius:4px; font-size:.9em; }
-  pre { background:var(--code); padding:14px; border-radius:8px; overflow-x:auto; }
-  pre code { background:none; padding:0; }
+  pre { background:var(--code); padding:14px; border-radius:8px; overflow-x:auto; } pre code { background:none; padding:0; }
   table { border-collapse:collapse; width:100%; display:block; overflow-x:auto; margin:1em 0; font-size:.94em; }
   th, td { border:1px solid var(--line); padding:8px 10px; text-align:left; vertical-align:top; }
-  th { background:var(--code); }
-  blockquote { margin:1em 0; padding:.4em 1em; border-left:4px solid var(--accent); background:var(--code); }
+  th { background:#0B0B0C; color:#fff; }
+  blockquote { margin:1em 0; padding:.4em 1em; border-left:4px solid var(--coral); background:var(--code); }
   hr { border:0; border-top:1px solid var(--line); margin:2em 0; }
   .mermaid { text-align:center; margin:1.4em 0; overflow-x:auto; }
-  img { max-width:100%; }
 </style></head>
-<body><main><h1 id="gcc-india-weekly-the-complete-code-walkthrough">GCC India Weekly — the complete code walkthrough</h1>
-<p><em>A single document to read from start to finish. No prior knowledge of LangGraph, scraping or LLMs is assumed.</em></p>
-<p><strong>How to read this:</strong> Parts 1–3 give you the whole picture in about 10 minutes. Parts 4–6 walk through every file.
-Parts 7–11 cover rules, data, tests, commands and troubleshooting. If you only read one thing, read Parts 1, 2 and 3.</p>
+<body><header><div class="logo">LTM</div><div class="t">GCC Origin &middot; India GCC Intelligence</div></header>
+<main><h1 id="india-gcc-intelligence-the-complete-code-walkthrough">India GCC Intelligence — the complete code walkthrough</h1>
+<p><em>One document to read from start to finish. No prior knowledge of LangGraph, scraping or LLMs is assumed.</em></p>
+<p><strong>How to read this:</strong> Parts 1–3 give the whole picture in about 10 minutes. Part 4 gets it running on your own
+computer. Parts 5–8 walk through every file, including the dashboard. Parts 9–12 cover rules, data, tests and
+troubleshooting. If you only read three things, read Parts 1, 2 and 4.</p>
 <hr />
 <h2 id="contents">Contents</h2>
 <ol>
 <li><a href="#1-what-this-project-does">What this project does</a></li>
 <li><a href="#2-the-big-picture">The big picture</a></li>
 <li><a href="#3-one-run-start-to-finish-with-a-real-example">One run, start to finish (with a real example)</a></li>
-<li><a href="#4-ideas-you-need-first">Ideas you need first (plain-English glossary)</a></li>
-<li><a href="#5-project-map">Project map: every file in one line</a></li>
-<li><a href="#6-file-by-file-walkthrough">File-by-file walkthrough</a></li>
-<li><a href="#7-the-rules-the-system-follows">The rules the system follows (and why)</a></li>
-<li><a href="#8-the-database">The database</a></li>
-<li><a href="#9-configuration-and-commands">Configuration (<code>.env</code>) and commands</a></li>
-<li><a href="#10-tests">Tests</a></li>
-<li><a href="#11-limits-troubleshooting-and-next-steps">Limits, troubleshooting and what to do next</a></li>
+<li><a href="#4-run-it-locally-step-by-step">Run it locally, step by step</a></li>
+<li><a href="#5-ideas-you-need-first">Ideas you need first (plain-English glossary)</a></li>
+<li><a href="#6-project-map">Project map: every file in one line</a></li>
+<li><a href="#7-file-by-file-walkthrough-the-pipeline">File-by-file walkthrough: the pipeline</a></li>
+<li><a href="#8-the-dashboard-the-backfill-and-the-daily-refresh">The dashboard, the backfill and the daily refresh</a></li>
+<li><a href="#9-the-rules-the-system-follows">The rules the system follows (and why)</a></li>
+<li><a href="#10-the-database">The database</a></li>
+<li><a href="#11-settings-commands-and-tests">Settings, commands and tests</a></li>
+<li><a href="#12-limits-troubleshooting-and-next-steps">Limits, troubleshooting and next steps</a></li>
 </ol>
 <hr />
 <h2 id="1-what-this-project-does">1. What this project does</h2>
-<p>Every week it answers one question:</p>
+<p>It answers one question for LTM's leadership, continuously:</p>
 <blockquote>
-<p><strong>"Which companies opened a new Global Capability Centre (GCC) in India, or expanded an existing one, in the last 7 days?"</strong></p>
+<p><strong>"Which companies opened a new Global Capability Centre (GCC) in India, or expanded one — and where can
+LTM's GCC Origin business win work?"</strong></p>
 </blockquote>
-<p>A <strong>GCC</strong> is an India-based centre that a multinational company runs for itself (technology, finance, engineering work).
-Analysts track them because a new one means jobs and investment.</p>
-<p>The program:</p>
-<ol>
-<li><strong>Searches</strong> several places for news (Google, X/Twitter, four GCC news sites).</li>
-<li><strong>Reads</strong> the results with an AI model and turns messy text into tidy records (company, city, date, type...).</li>
-<li><strong>Checks</strong> each record: is it real, recent, in India, not a rumour, not already reported?</li>
-<li><strong>Finds a source link</strong> for each one (press release if it exists, otherwise the company's own post, otherwise a news article).</li>
-<li><strong>Builds an email</strong> (cards + a sector pie chart) and <strong>sends it to your Gmail</strong>.</li>
-<li><strong>Remembers</strong> everything in a small database so the same GCC is never reported twice.</li>
-</ol>
-<p>If nothing new is found, it sends a short "no new GCC activity this week" email instead.
-If every source is broken, it sends nothing (so it never falsely says "nothing happened").</p>
-<p><strong>Size:</strong> about 2,200 lines of Python plus about 780 lines of tests (59 tests).</p>
+<p>A <strong>GCC</strong> is an India-based centre a multinational runs for itself (technology, finance, engineering work). LTM's
+<strong>GCC Origin</strong> unit (launched 28 Oct 2026) helps enterprises set up, run and transform GCCs, so every new GCC is a
+potential client.</p>
+<p>The system has four jobs:</p>
+<table>
+<thead>
+<tr>
+<th>Job</th>
+<th>When</th>
+<th>What you get</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Daily refresh</strong></td>
+<td>every day, 07:00 IST</td>
+<td>New GCCs from the last few days are added to the database (no email)</td>
+</tr>
+<tr>
+<td><strong>Weekly email</strong></td>
+<td>e.g. Monday 09:00</td>
+<td>The <strong>India GCC Report</strong> email plus the <strong>India GCC Weekly Intel Report</strong> PDF</td>
+</tr>
+<tr>
+<td><strong>Dashboard</strong></td>
+<td>whenever you open it</td>
+<td>A live LTM-themed web page: filter, search, analyse, download, email</td>
+</tr>
+<tr>
+<td><strong>Backfill</strong></td>
+<td>once (or per year)</td>
+<td>The whole year's GCCs loaded into the database</td>
+</tr>
+</tbody>
+</table>
+<p>Every GCC goes through the same pipeline: <strong>search</strong> several sources → an AI <strong>reads</strong> the results into tidy
+records → strict <strong>checks</strong> (real, recent, in India, a business, not a competitor, not a repeat) → a <strong>source link</strong>
+→ an <strong>LTM opportunity analysis</strong> (business area, products, the India centre's mandate, how LTM wins) → stored in
+a small database that never forgets what was already reported.</p>
+<p><strong>Size:</strong> about 3,900 lines of application code and 1,240 lines of tests (108 tests).</p>
 <hr />
 <h2 id="2-the-big-picture">2. The big picture</h2>
-<p>Think of it as a small newsroom with five roles. Each role is a piece of code:</p>
+<p>Think of it as a small analyst team. Each role is a piece of code:</p>
 <table>
 <thead>
 <tr>
@@ -73,75 +103,84 @@ If every source is broken, it sends nothing (so it never falsely says "nothing h
 </thead>
 <tbody>
 <tr>
-<td><strong>Search agent</strong></td>
-<td>Go and find candidate news</td>
-<td><code>serper_source.py</code>, <code>x_source.py</code>, <code>sites_source.py</code></td>
-</tr>
-<tr>
-<td><strong>Source layer</strong></td>
-<td>The places searched</td>
-<td>Google (via Serper), X.com (via Groq), ET GCC, GCC Pulse, Moneycontrol, GCC Index</td>
+<td><strong>Search agents</strong></td>
+<td>Find candidate news</td>
+<td><code>serper_source.py</code> (Google), <code>x_source.py</code> (X), <code>sites_source.py</code> + <code>sites/</code> (GCC news sites)</td>
 </tr>
 <tr>
 <td><strong>Evaluate agent</strong></td>
-<td>Decide what is real, recent and new, and pick the source link</td>
+<td>Decide what is real, recent and new; pick the source link</td>
 <td><code>evaluate_agent.py</code></td>
 </tr>
 <tr>
+<td><strong>Insights agent</strong></td>
+<td>Write the LTM account brief for each GCC</td>
+<td><code>insights_agent.py</code> + <code>ltm.py</code></td>
+</tr>
+<tr>
 <td><strong>Report agent</strong></td>
-<td>Write the email and draw the pie chart</td>
-<td><code>report_agent.py</code> + <code>templates/report.html.j2</code></td>
+<td>Build the email, the PDF and the charts</td>
+<td><code>report_agent.py</code>, <code>visuals.py</code>, <code>pdf.py</code>, <code>templates/</code></td>
 </tr>
 <tr>
 <td><strong>Email agent</strong></td>
-<td>Send it, and only then save to the database</td>
+<td>Send through Gmail; only then mark items as reported</td>
 <td><code>email_agent.py</code> + <code>graph.py</code></td>
+</tr>
+<tr>
+<td><strong>Dashboard</strong></td>
+<td>Let people explore, analyse, download and email</td>
+<td><code>dashboard/app.py</code> + <code>dashboard/static/index.html</code></td>
 </tr>
 </tbody>
 </table>
-<p>They are wired together by <strong>LangGraph</strong> in <code>graph.py</code>. LangGraph is a library that lets you draw a flowchart in code
-("do A, then B and C at the same time, then D, and depending on the result go to E or F") and then runs it.</p>
+<p>The pipeline is wired by <strong>LangGraph</strong> in <code>graph.py</code>. It runs in two <strong>modes</strong>: <code>email</code> (weekly) and <code>collect</code> (daily).</p>
 <div class="mermaid">flowchart TD
-    S([START]) --> P["prepare<br/>set the 7-day window,<br/>load already-reported list"]
+    S([START]) --> P["prepare<br/>set the window (14 days weekly, 3 days daily)<br/>load already-reported list"]
 
     P --> SE["serper<br/>Google search, then AI reads results"]
-    P --> X["x<br/>X.com posts via Groq, then AI reads them"]
+    P --> X["x<br/>X.com posts via Groq"]
     P --> SI["sites<br/>ET GCC, GCC Pulse, Moneycontrol, GCC Index"]
 
     SE --> J{{"wait for all three"}}
     X --> J
     SI --> J
-    J --> E["evaluate<br/>real? recent? new?<br/>find the best source link"]
+    J --> E["evaluate<br/>merge, rules, AI judge,<br/>best source link, duplicate check"]
 
-    E -->|"at least one approved"| R["report<br/>summary, cards, pie chart"]
-    E -->|"nothing approved and every source failed"| F["search_failed<br/>log it, send nothing"]
-    E -->|"nothing approved, retry not used yet"| RT["serper_retry<br/>search city by city"]
+    E -->|"daily mode"| C["collect<br/>save new GCCs to the database<br/>(no email)"]
+    E -->|"weekly: new or pending GCCs"| I["insights<br/>LTM analysis per company"]
+    E -->|"weekly: nothing, retry unused"| RT["serper_retry<br/>search city by city"]
     RT --> E
-    E -->|"nothing approved, retry used"| R
+    E -->|"every source failed"| F["search_failed<br/>log it, send nothing"]
+    E -->|"weekly: nothing, retry used"| R
+    I --> R["report<br/>email HTML + PDF + charts"]
+    R -->|"has items, or empty-week emails on"| M["email<br/>send, then mark as reported"]
+    R -->|"empty and empty emails off"| K["skip"]
 
-    R -->|"has items, or empty-week emails on"| M["email<br/>send, then save to the database"]
-    R -->|"empty week and empty emails off"| K["skip"]
-
-    M --> Z([END])
+    C --> Z([END])
+    M --> Z
     K --> Z
     F --> Z
 
-    classDef src fill:#e8f1fb,stroke:#0b5cad;
-    classDef gate fill:#fff4e0,stroke:#b26a00;
-    classDef out fill:#e6f5ee,stroke:#1b7f5c;
+    classDef src fill:#FDE7E3,stroke:#C2391F;
+    classDef gate fill:#F3F4F6,stroke:#3D434C;
+    classDef out fill:#0B0B0C,stroke:#0B0B0C,color:#FFFFFF;
     class SE,X,SI src;
     class E,J gate;
-    class R,M out;
+    class R,M,C out;
 </div>
-<p>Two design ideas make the whole thing trustworthy, and you will see them repeated:</p>
+<p>Three design ideas make it trustworthy:</p>
 <ul>
-<li><strong>"Never lie by silence."</strong> If every source failed, the program refuses to say "nothing new". It logs an error and stops.</li>
-<li><strong>"Save only after sending."</strong> The database is updated only after Gmail accepted the email. If sending fails, nothing is
-  marked as reported, so next time the same items are tried again.</li>
+<li><strong>"Never lie by silence."</strong> If every source failed, it refuses to say "nothing new". It logs an error and stops.</li>
+<li><strong>"Save the email history only after sending."</strong> Items are marked as reported only after Gmail accepts the email.
+  A failed send never hides an item.</li>
+<li><strong>"Facts from sources, analysis from LTM's real catalogue."</strong> The AI may only use facts found in the sources,
+  and may only recommend GCC Origin services that exist in LTM's launch release.</li>
 </ul>
 <hr />
 <h2 id="3-one-run-start-to-finish-with-a-real-example">3. One run, start to finish (with a real example)</h2>
-<p>Let's follow one real event: <strong>Woodside Energy opens a GCC in Bengaluru (16 Sep 2026).</strong> Command: <code>python main.py --once</code>.</p>
+<p>Follow one real event — <strong>TIAA opens a new Pune office for 2,000 colleagues (reported 23 Oct 2026)</strong> — through a
+daily refresh and the next weekly email.</p>
 <table>
 <thead>
 <tr>
@@ -153,90 +192,168 @@ If every source is broken, it sends nothing (so it never falsely says "nothing h
 <tbody>
 <tr>
 <td>1</td>
-<td><code>main.py</code> reads your settings from <code>.env</code>, starts logging, turns LangSmith tracing on or off, and calls <code>run_once()</code>.</td>
-<td><code>main.py</code>, <code>config.py</code>, <code>tracing.py</code></td>
+<td>At 07:00 the scheduler runs <code>python main.py --refresh</code>. Settings come from <code>.env</code>; the window is the last 3 days.</td>
+<td><code>main.py</code>, <code>config.py</code></td>
 </tr>
 <tr>
 <td>2</td>
-<td><strong>prepare:</strong> today is 20 Sep, so the window is 13–20 Sep. It loads the list of companies already in the database (so the AI is told not to return them).</td>
-<td><code>graph.py</code></td>
+<td><strong>prepare</strong> loads the list of companies already reported, so the AI is told not to return them again.</td>
+<td><code>graph.py</code>, <code>db.py</code></td>
 </tr>
 <tr>
 <td>3</td>
-<td><strong>Three sources run at the same time.</strong></td>
-<td><code>graph.py</code></td>
-</tr>
-<tr>
-<td>3a</td>
-<td><em>Google:</em> about 10 searches such as "GCC India opens new global capability centre", each as a web search and a news search limited to the last week. About 80–100 results come back.</td>
+<td><strong>Three sources run at once.</strong> Google runs ~20 searches (web + news, India, last 3 days), including phrasings like "opens new office in India" and <code>site:punegcc.com</code>.</td>
 <td><code>serper_source.py</code></td>
 </tr>
 <tr>
-<td>3b</td>
-<td><em>X.com:</em> one question to Groq's search model, limited to x.com. This week it found nothing.</td>
-<td><code>x_source.py</code></td>
-</tr>
-<tr>
-<td>3c</td>
-<td><em>Sites:</em> one hidden Chrome browser visits ET GCC, GCC Pulse, Moneycontrol and (with your login) GCC Index.</td>
-<td><code>sites_source.py</code>, <code>sites/*</code></td>
-</tr>
-<tr>
 <td>4</td>
-<td>An AI model reads each blob of text and outputs records like <code>{company: "Woodside Energy", city: "Bengaluru", type: new_gcc, date: 2026-09-16, summary: "..."}</code>. GCC Index is already structured, so no AI is needed there.</td>
+<td>The AI reads the search results and outputs a record: <code>TIAA · Pune · expansion · event 11 Oct · reported 23 Oct · "new office for 2,000"</code>.</td>
 <td><code>llm.py</code>, <code>models.py</code></td>
 </tr>
 <tr>
 <td>5</td>
-<td>All records are pooled (say 120 candidates, most from GCC Index's older rows).</td>
-<td><code>graph.py</code></td>
+<td><strong>evaluate</strong>: rules first. The event date (11 Oct) is a little old, but the news came out inside the window, so the <strong>late-coverage</strong> rule keeps it. Not a competitor, city present, not in the database.</td>
+<td><code>evaluate_agent.py</code></td>
 </tr>
 <tr>
 <td>6</td>
-<td><strong>evaluate:</strong> merge duplicates (ET, GCC Pulse and GCC Index all mention Woodside: they become one record). Then quick rule checks: has a city? has a date? inside the window? Old GCC Index rows drop out here for free.</td>
+<td>The <strong>AI judge</strong> confirms it is a genuine GCC expansion in India and sets the sector (BFSI).</td>
 <td><code>evaluate_agent.py</code></td>
 </tr>
 <tr>
 <td>7</td>
-<td>Is it "stale"? Is it already in the database? Not for Woodside.</td>
-<td><code>evaluate_agent.py</code>, <code>db.py</code></td>
+<td><strong>Source link</strong>: no official press release found; the company's own LinkedIn post or the news article is used and checked to really be about TIAA in Pune.</td>
+<td><code>evaluate_agent.py</code></td>
 </tr>
 <tr>
 <td>8</td>
-<td>A stronger AI model judges: real GCC event in India, not a rumour or hiring news? Sets the final type, opened/announced status and sector.</td>
-<td><code>evaluate_agent.py</code></td>
+<td><strong>collect</strong> saves it to the database (<code>origin = daily</code>). It appears in the dashboard immediately. No email.</td>
+<td><code>graph.py</code>, <code>db.py</code></td>
 </tr>
 <tr>
 <td>9</td>
-<td><strong>Find the source link.</strong> Look for an official press release (Google, wire services, the company site). None was found for Woodside. Fall back: the ET GCC article that reported it. The AI reads that page to confirm it is really about Woodside in Bengaluru. Label: <strong>News</strong>.</td>
-<td><code>evaluate_agent.py</code></td>
-</tr>
-<tr>
-<td>10</td>
-<td>Woodside is <strong>approved</strong>. Six items were approved this week in total.</td>
+<td>Monday 09:00: <code>python main.py --once</code> searches the last 14 days, and also picks up everything the daily runs collected and no email has carried yet — TIAA included.</td>
 <td><code>graph.py</code></td>
 </tr>
 <tr>
+<td>10</td>
+<td><strong>insights</strong> writes TIAA's LTM brief: business area, products, the Pune centre's mandate, fit (High/Medium/Low), GCC Origin services to lead with, engagement model, talking points, next step.</td>
+<td><code>insights_agent.py</code></td>
+</tr>
+<tr>
 <td>11</td>
-<td><strong>report:</strong> an AI writes a 2–3 sentence summary; matplotlib draws the sector pie; a template builds the HTML email with one card per company.</td>
-<td><code>report_agent.py</code></td>
+<td><strong>report</strong> builds the <em>India GCC Report</em> email and the <em>India GCC Weekly Intel Report</em> PDF (cover, overview table, charts, one profile per company).</td>
+<td><code>report_agent.py</code>, <code>visuals.py</code>, <code>pdf.py</code></td>
 </tr>
 <tr>
 <td>12</td>
-<td><strong>email:</strong> sent through Gmail. Gmail said yes, so the six items are saved in the database and a copy of the email is stored in <code>data/reports/</code>.</td>
-<td><code>email_agent.py</code>, <code>graph.py</code>, <code>db.py</code></td>
-</tr>
-<tr>
-<td>13</td>
-<td><strong>Next week:</strong> Woodside is found again, but the database says "already reported", so it is skipped.</td>
-<td><code>db.py</code></td>
+<td><strong>email</strong> sends it through Gmail. Gmail says yes, so TIAA is marked as reported. It will never be emailed again.</td>
+<td><code>email_agent.py</code>, <code>db.py</code></td>
 </tr>
 </tbody>
 </table>
-<p>The whole run takes about 1.5–2 minutes and makes a modest number of AI and search calls.</p>
 <hr />
-<h2 id="4-ideas-you-need-first">4. Ideas you need first</h2>
-<p>You can skip this and come back when a word is unfamiliar.</p>
+<h2 id="4-run-it-locally-step-by-step">4. Run it locally, step by step</h2>
+<p>These steps take about 15 minutes the first time. Commands are shown for <strong>Windows (PowerShell)</strong>; Linux/macOS
+differences are noted.</p>
+<h3 id="41-what-you-need">4.1 What you need</h3>
+<ul>
+<li><strong>Python 3.12</strong> (3.11+ works) and <strong>Git</strong>.</li>
+<li>Accounts/keys (put them in <code>.env</code>, step 4.3):</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Needed for</th>
+<th>Where to get it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>OPENAI_API_KEY</code></td>
+<td>all AI steps (required)</td>
+<td>platform.openai.com</td>
+</tr>
+<tr>
+<td><code>SERPER_API_KEY</code></td>
+<td>Google search (strongly recommended)</td>
+<td>serper.dev</td>
+</tr>
+<tr>
+<td><code>GROQ_API_KEY</code></td>
+<td>X.com search (optional)</td>
+<td>console.groq.com</td>
+</tr>
+<tr>
+<td><code>GCCINDEX_USERNAME</code>, <code>GCCINDEX_PASSWORD</code></td>
+<td>GCC Index events (optional, recommended)</td>
+<td>your gccindex.in account</td>
+</tr>
+<tr>
+<td><code>GMAIL_USER</code>, <code>GMAIL_APP_PASSWORD</code>, <code>TO_EMAIL</code></td>
+<td>sending email</td>
+<td>a <strong>16-letter app password</strong> from myaccount.google.com/apppasswords (needs 2-Step Verification)</td>
+</tr>
+<tr>
+<td><code>LANGSMITH_*</code></td>
+<td>run traces (optional)</td>
+<td>smith.langchain.com</td>
+</tr>
+</tbody>
+</table>
+<h3 id="42-get-the-code-and-install">4.2 Get the code and install</h3>
+<pre><code class="language-powershell">git clone https://github.com/neudelta/gccreport.git
+cd gccreport
+python -m venv .venv
+.venv\Scripts\python -m pip install -r requirements.txt
+.venv\Scripts\python -m playwright install chromium
+</code></pre>
+<p>Linux/macOS: use <code>.venv/bin/python</code>, and <code>python -m playwright install --with-deps chromium</code>.</p>
+<blockquote>
+<p>Everything below uses <code>.venv\Scripts\python</code>. If you activate the venv first (<code>.venv\Scripts\Activate.ps1</code>),
+plain <code>python</code> works too.</p>
+</blockquote>
+<h3 id="43-configure">4.3 Configure</h3>
+<pre><code class="language-powershell">copy .env.example .env
+notepad .env
+</code></pre>
+<p>Fill in the keys from 4.1. Useful defaults already set: <code>LOOKBACK_DAYS=14</code> (weekly window), <code>DAILY_LOOKBACK_DAYS=3</code>,
+<code>SEND_EMPTY_REPORT=true</code>, <code>INCLUDE_ANNOUNCED=true</code>. <strong>Never commit <code>.env</code></strong> (git already ignores it).</p>
+<h3 id="44-check-it-works">4.4 Check it works</h3>
+<pre><code class="language-powershell">.venv\Scripts\python -m pytest -q                         # 108 tests, offline, ~20 s
+.venv\Scripts\python main.py --once --dry-run             # real search, no email, no database writes
+</code></pre>
+<p>The dry run takes 1–2 minutes and writes <code>data\preview.html</code> (the email — open it in a browser) and
+<code>data\preview_briefing.pdf</code> (the report).</p>
+<h3 id="45-load-the-year-and-open-the-dashboard">4.5 Load the year and open the dashboard</h3>
+<pre><code class="language-powershell">.venv\Scripts\python main.py --backfill 2026 --dry-run    # optional preview -&gt; data\backfill_preview.csv
+.venv\Scripts\python main.py --backfill 2026              # loads the year into data\gcc.db (~12 minutes)
+.venv\Scripts\python main.py --dashboard                  # then open http://127.0.0.1:8000
+</code></pre>
+<p>Stop the dashboard with <strong>Ctrl+C</strong>. Use <code>--port 8080</code> if 8000 is taken.</p>
+<blockquote>
+<p>Moving from another computer? Instead of a new backfill, copy that computer's <code>data\</code> folder (it holds
+<code>gcc.db</code> with the catalogue and email history, plus the GCC Index session).</p>
+</blockquote>
+<h3 id="46-everyday-commands">4.6 Everyday commands</h3>
+<pre><code class="language-powershell">.venv\Scripts\python main.py --refresh                    # daily: add new GCCs, no email
+.venv\Scripts\python main.py --once                       # weekly: send the India GCC Report
+.venv\Scripts\python main.py --why &quot;TIAA, Havells&quot;        # what did the last run do with these companies?
+.venv\Scripts\python main.py --resend-last --dry-run      # rebuild the last report with the current layout
+</code></pre>
+<h3 id="47-make-it-automatic">4.7 Make it automatic</h3>
+<p>Run the jobs on <strong>one</strong> machine that is usually on:</p>
+<ul>
+<li><strong>Windows Task Scheduler:</strong> <code>powershell -ExecutionPolicy Bypass -File scripts\schedule_windows.ps1</code>
+  (defaults: daily refresh 07:00, weekly email Monday 09:00; add <code>-Dashboard</code> to start the dashboard at login).
+  Times are the machine's local time — set it to India Standard Time.</li>
+<li><strong>Linux cron:</strong> copy the lines from <code>scripts/crontab.example</code> (<code>CRON_TZ=Asia/Kolkata</code>).</li>
+<li><strong>One long-running process:</strong> <code>python main.py --schedule --daily 07:00 --cron "mon 09:00"</code> (stops if the window
+  closes).</li>
+</ul>
+<hr />
+<h2 id="5-ideas-you-need-first">5. Ideas you need first</h2>
 <table>
 <thead>
 <tr>
@@ -247,600 +364,394 @@ If every source is broken, it sends nothing (so it never falsely says "nothing h
 <tbody>
 <tr>
 <td><strong>LLM / AI model</strong></td>
-<td>A program (here OpenAI's GPT) that reads text and answers questions about it. We use it as a careful reader, never as a source of facts.</td>
+<td>OpenAI's GPT, used as a careful reader and analyst — never as a source of facts.</td>
 </tr>
 <tr>
 <td><strong>Structured output</strong></td>
-<td>Instead of chatting, the AI is forced to fill in a form (a Python class), so we get clean fields, not paragraphs.</td>
+<td>The AI must fill in a form (a Python class) instead of chatting, so we get clean fields.</td>
 </tr>
 <tr>
-<td><strong>Prompt</strong></td>
-<td>The instructions and text we hand the AI. The main ones live in <code>llm.py</code> and <code>evaluate_agent.py</code>.</td>
-</tr>
-<tr>
-<td><strong>LangChain / LangGraph</strong></td>
-<td>Libraries for calling AI models (LangChain) and for wiring steps into a flowchart that runs (LangGraph).</td>
-</tr>
-<tr>
-<td><strong>Node</strong></td>
-<td>One box in the flowchart. In code, a Python function that receives the state and returns changes.</td>
-</tr>
-<tr>
-<td><strong>State</strong></td>
-<td>One shared notebook that all nodes read and write (<code>State</code> in <code>graph.py</code>).</td>
+<td><strong>LangGraph</strong></td>
+<td>A library to draw a flowchart in code and run it. Each box is a <strong>node</strong>; nodes share one <strong>state</strong>.</td>
 </tr>
 <tr>
 <td><strong>Reducer</strong></td>
-<td>The rule for what happens when several nodes write the same field at the same time. <code>operator.add</code> means "append to the list". Without it, parallel sources would overwrite each other.</td>
-</tr>
-<tr>
-<td><strong>Conditional edge</strong></td>
-<td>An arrow that picks its destination by running a small function (for example "did evaluate approve anything?").</td>
+<td>The rule for merging writes when several nodes write the same field at once (<code>operator.add</code> = append).</td>
 </tr>
 <tr>
 <td><strong>Serper</strong></td>
-<td>A paid API that returns Google search results as data.</td>
+<td>A paid API that returns Google results as data. <code>tbs</code> filters by date (<code>qdr:d14</code> = last 14 days).</td>
 </tr>
 <tr>
 <td><strong>Groq</strong></td>
-<td>An AI service with a built-in web search that can be limited to certain sites. We limit it to x.com.</td>
+<td>An AI service with web search that can be limited to x.com.</td>
 </tr>
 <tr>
 <td><strong>Playwright</strong></td>
-<td>A tool that drives a real, invisible Chrome browser. Needed for pages that build themselves with JavaScript, or need a login.</td>
+<td>Drives a real, invisible Chrome — needed for JavaScript pages and logins.</td>
 </tr>
 <tr>
 <td><strong>JSON-LD</strong></td>
-<td>Hidden structured data many news pages carry, including the publish date. We read it instead of guessing.</td>
+<td>Hidden structured data in news pages, including the publish date.</td>
 </tr>
 <tr>
 <td><strong>SQLite</strong></td>
-<td>A database that is a single file (<code>data/gcc.db</code>). No server needed.</td>
+<td>A database that is one file (<code>data/gcc.db</code>).</td>
 </tr>
 <tr>
 <td><strong>Dry run</strong></td>
-<td>A full run that sends no email and writes nothing to the database. It writes <code>data/preview.html</code> instead.</td>
+<td>A full run that sends nothing and writes nothing to the database; it writes previews instead.</td>
 </tr>
 <tr>
-<td><strong>SMTP / app password</strong></td>
-<td>The way programs send Gmail. Google requires a special 16-letter "app password", not your normal password.</td>
+<td><strong>Backfill</strong></td>
+<td>Loading a past period (e.g. all of 2026) into the database in one go.</td>
+</tr>
+<tr>
+<td><strong>Collect vs email mode</strong></td>
+<td>Daily refresh only saves; weekly run sends the email and marks items as reported.</td>
+</tr>
+<tr>
+<td><strong>FastAPI / uvicorn</strong></td>
+<td>The small Python web framework and server behind the dashboard.</td>
+</tr>
+<tr>
+<td><strong>App password / SMTP</strong></td>
+<td>How a program sends Gmail: a 16-letter Google app password, not your normal password.</td>
 </tr>
 <tr>
 <td><strong>CID image</strong></td>
-<td>How an image is embedded inside an email so it shows without a download link.</td>
+<td>An image embedded inside an email so it shows without "load images".</td>
 </tr>
 <tr>
 <td><strong>LangSmith</strong></td>
-<td>A website that records a "flight recording" of each run so you can inspect every step. Optional.</td>
-</tr>
-<tr>
-<td><strong>APScheduler</strong></td>
-<td>A Python timer used to run the job every N minutes or weekly.</td>
+<td>Optional "flight recorder" of each run.</td>
 </tr>
 </tbody>
 </table>
 <hr />
-<h2 id="5-project-map">5. Project map</h2>
+<h2 id="6-project-map">6. Project map</h2>
 <pre><code>gccreport/
-├── main.py                       Entry point: all commands (--once, --schedule, --list, --resend-last ...)
-├── requirements.txt              Python packages needed
-├── .env.example                  Template for your keys (the real .env is never committed)
-├── gcc_agents/
-│   ├── config.py                 Reads .env into a Settings object
-│   ├── tracing.py                LangSmith helpers (and keeps keys out of traces)
-│   ├── models.py                 The data shapes (GCC record) and the rules that make duplicates match
-│   ├── dates.py                  Understands &quot;2 days ago&quot;, &quot;Sep 18, 2026&quot;
-│   ├── llm.py                    Creates the AI model; the shared &quot;text to records&quot; extractor
-│   ├── serper_source.py          Source 1: Google search
-│   ├── x_source.py               Source 2: X.com via Groq
-│   ├── sites_source.py           Source 3: runs the four site adapters
-│   ├── sites/
-│   │   ├── base.py               Shared helpers for the adapters
-│   │   ├── et_gcc.py             ET GCC news
-│   │   ├── gcc_pulse.py          GCC Pulse news
-│   │   ├── moneycontrol.py       Moneycontrol (blocked; stub that reports &quot;blocked&quot;)
-│   │   └── gccindex.py           GCC Index events (login, structured feed)
-│   ├── evaluate_agent.py         The judge: filters, verifies, picks the source link
-│   ├── report_agent.py           Builds subject, HTML, text and the pie chart
-│   ├── templates/report.html.j2  The email layout (mobile-friendly cards)
-│   ├── email_agent.py            Sends through Gmail
-│   ├── db.py                     SQLite: save, look up, list, export
-│   └── graph.py                  The flowchart itself
-├── tests/                        59 automated tests
-└── docs/                         Architecture doc, graph, and this walkthrough
+├── main.py                        Every command (--once, --refresh, --backfill, --dashboard, --why, ...)
+├── requirements.txt / .env.example
+├── gcc_agents/                    The pipeline
+│   ├── config.py                  .env -&gt; Settings (secrets never printed)
+│   ├── models.py                  GCC record, LTMInsight, name/city/URL normalisation
+│   ├── dates.py                   &quot;2 days ago&quot;, &quot;Sep 18, 2026&quot; -&gt; dates
+│   ├── llm.py                     OpenAI model + text -&gt; GCC records
+│   ├── tracing.py                 LangSmith helpers (keys scrubbed)
+│   ├── serper_source.py           Source: Google
+│   ├── x_source.py                Source: X via Groq
+│   ├── sites_source.py, sites/    Source: ET GCC, GCC Pulse, Moneycontrol, GCC Index
+│   ├── evaluate_agent.py          Rules, AI judge, source links
+│   ├── ltm.py                     LTM palette + GCC Origin catalogue (from the launch release)
+│   ├── insights_agent.py          LTM account brief per GCC
+│   ├── report_agent.py            Email + PDF assembly
+│   ├── visuals.py                 Hero wave, sector donut, city bars (PNG)
+│   ├── pdf.py                     HTML -&gt; PDF (cover + body, page numbers)
+│   ├── templates/                 report.html.j2 (email), briefing.html.j2 (PDF)
+│   ├── email_agent.py             Gmail sending, several recipients
+│   ├── db.py                      SQLite tables and queries
+│   ├── graph.py                   The LangGraph flow (email and collect modes)
+│   └── backfill.py                Load a whole year
+├── dashboard/
+│   ├── app.py                     FastAPI API
+│   └── static/index.html          The LTM dashboard page (HTML/CSS/JS, no external libraries)
+├── scripts/                       schedule_windows.ps1, crontab.example
+├── tests/                         108 tests (all offline)
+└── docs/                          ARCHITECTURE.md, this walkthrough
 </code></pre>
-<p>Lines of code (approx.): <code>evaluate_agent</code> 500, <code>db</code> 227, <code>graph</code> 194, <code>main</code> 174, <code>models</code> 165, <code>gccindex</code> 137, <code>report_agent</code> 130,
-<code>serper_source</code> 95, <code>sites_source</code> 80, everything else under 75 each.</p>
 <hr />
-<h2 id="6-file-by-file-walkthrough">6. File-by-file walkthrough</h2>
-<h3 id="61-configpy-settings-50-lines">6.1 <code>config.py</code> — settings (50 lines)</h3>
-<p><strong>Purpose:</strong> turn the <code>.env</code> file into one <code>Settings</code> object that the rest of the code passes around.</p>
+<h2 id="7-file-by-file-walkthrough-the-pipeline">7. File-by-file walkthrough: the pipeline</h2>
+<h3 id="71-configpy-settings">7.1 <code>config.py</code> — settings</h3>
+<p>Reads <code>.env</code> into one <code>Settings</code> object. Every secret field is declared <code>repr=False</code>, so keys never appear if
+settings are printed. Also defines paths (<code>data/gcc.db</code>, <code>data/reports/</code>, the GCC Index session file), the list of
+sources, <code>lookback_days</code> (14) and <code>daily_lookback_days</code> (3), and <code>source_enabled()</code> for <code>--only</code> / <code>DISABLED_SOURCES</code>.</p>
+<h3 id="72-modelspy-the-data">7.2 <code>models.py</code> — the data</h3>
 <ul>
-<li><code>load_dotenv(ROOT / ".env")</code> copies every line of <code>.env</code> into the environment when the file is imported.</li>
-<li><code>Settings</code> is a Python <em>dataclass</em>. Each field reads one variable: <code>openai_model</code>, <code>judge_model</code>, <code>serper_key</code>, <code>groq_key</code>,
-  <code>gccindex_user/pass</code>, <code>gmail_user/password</code>, <code>to_email</code>, <code>lookback_days</code> (7), <code>send_empty_report</code> (True),
-  <code>include_announced</code> (True), <code>disabled_sources</code>.</li>
-<li><strong>Safety detail:</strong> all secrets are declared with <code>repr=False</code>. If a Settings object is ever printed (in an error message or a
-  failing test), the keys do <strong>not</strong> appear. This was added after a test failure once printed part of a key.</li>
-<li><code>source_enabled(name)</code> answers "should this source run?": respects <code>--only</code> (run just these) and <code>DISABLED_SOURCES</code>.</li>
-<li>Also defines the file paths: <code>data/gcc.db</code>, <code>data/reports/</code>, <code>data/gccindex_state.json</code>.</li>
-<li><code>ALL_SOURCES = serper, groq_x, et_gcc, gcc_pulse, moneycontrol, gccindex</code>.</li>
+<li><strong><code>ExtractedItem</code></strong>: the form the AI fills (plain text): company, city, type, status, <code>event_date</code>,
+  <code>reported_date</code> (when the news appeared), headcount, summary, links.</li>
+<li><strong><code>GCC</code></strong>: the real record used everywhere, plus <code>source_url</code>/<code>source_kind</code> (the link shown) and <code>insight</code>.
+  If the AI gives no event date, the news date is used.</li>
+<li><strong><code>LTMInsight</code></strong>: headquarters, business area, products, the India centre's mandate, scale, fit
+  (High/Medium/Low), rationale, GCC Origin services, engagement model, talking points, next step.</li>
+<li><strong>Normalisation</strong> that makes duplicates match: <code>company_key</code> ("Acme India Pvt Ltd" → <code>acme</code>),
+  <code>city_key</code> (Bangalore → bengaluru, Gautam Buddh Nagar → noida), <code>event_key</code> (<code>company|city|new_gcc</code>, or with the
+  month for expansions).</li>
 </ul>
-<h3 id="62-modelspy-the-shapes-of-the-data-165-lines">6.2 <code>models.py</code> — the shapes of the data (165 lines)</h3>
-<p><strong>Purpose:</strong> define what a "GCC record" is, and the rules that decide when two records are "the same".</p>
-<p><strong>Three classes:</strong></p>
+<h3 id="73-datespy-and-llmpy-reading">7.3 <code>dates.py</code> and <code>llm.py</code> — reading</h3>
+<p><code>parse_web_date</code> turns "2 days ago", "17 Mar 2026" or ISO timestamps into dates (or <code>None</code>, never a guess).
+<code>llm.extract_items</code> gives the AI strict rules: only GCC openings/expansions in India; facts only from the text;
+<strong>one item per company</strong> even when one article names several (e.g. the UP cabinet clearing Havells, LG Soft,
+Ameriprise and MetLife); never the government as the company; each company's own investment; sector rules.</p>
+<h3 id="74-sources">7.4 Sources</h3>
 <ul>
-<li><code>ExtractedItem</code> is the form the AI fills in. Everything is plain text (dates as <code>"2026-09-16"</code>), because AI models are
-  most reliable with plain text. Its field descriptions double as instructions to the AI.</li>
-<li><code>ExtractionResult</code> is just <code>{ items: [ExtractedItem, ...] }</code>.</li>
-<li><code>GCC</code> is the real record used everywhere: <code>company</code>, <code>city</code>, <code>state</code>, <code>sector</code>, <code>event_type</code> (<code>new_gcc</code> or <code>expansion</code>),
-  <code>status</code> (<code>opened</code> or <code>announced</code>), <code>event_date</code>, <code>headcount</code>, <code>summary</code>, <code>press_release_url</code> (a <em>claimed</em> official link),
-  <code>source_urls</code>, <code>discovery_sources</code> (which sources found it), and the two fields chosen later: <code>source_url</code> and <code>source_kind</code>
-  (<code>press_release</code>, <code>company_post</code>, <code>news</code>, <code>post</code>).
-  <code>GCC.from_extracted()</code> converts the AI's text into this cleaner form (parsing the date, trimming spaces).</li>
+<li><strong><code>serper_source.py</code> (Google)</strong> — general queries, state approvals ("cabinet approves…", "letter of comfort",
+  MoUs), "opens new office", and <code>site:</code> queries for ET GCC (incl. its openings section), GCC Pulse,
+  Moneycontrol, GCC Index, punegcc.com and ET Government. Each as web + news search; the date filter follows the
+  window (<code>qdr:d14</code> weekly, <code>qdr:d3</code> daily). Results (with their dates) go to the AI in chunks of 30.</li>
+<li><strong><code>x_source.py</code> (X)</strong> — one Groq search limited to x.com. Leads only; same checks as everything else.</li>
+<li><strong><code>sites_source.py</code> + <code>sites/</code></strong> — one hidden Chrome for all sites; each site is isolated so one failure never
+  affects the others:</li>
+<li><code>et_gcc.py</code>: reads ET's <strong>workplace-transformation</strong> section (pages 1–2, where openings are filed) and <code>/news</code>,
+    keeps event-like headlines, reads each article's date and text from JSON-LD.</li>
+<li><code>gcc_pulse.py</code>: the news list is built by JavaScript; reads dates and items once it appears.</li>
+<li><code>moneycontrol.py</code>: blocked by bot protection; we report "blocked" and rely on Google's <code>site:</code> search.</li>
+<li><code>gccindex.py</code>: logs in with your account (only into its own form), lets the events page load its own data feed
+    and reads it — exact dates, type, city, sector. No AI needed. Never calls the feed directly.</li>
 </ul>
-<p><strong>Properties that make deduplication work:</strong></p>
-<table>
-<thead>
-<tr>
-<th>Property</th>
-<th>Example</th>
-<th>Why</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>company_key</code></td>
-<td>"Acme India Pvt Ltd" → <code>acme</code></td>
-<td>strips words like Pvt, Ltd, Inc, India, GCC, so spelling differences don't matter</td>
-</tr>
-<tr>
-<td><code>city_key</code></td>
-<td>"Bangalore, Karnataka" → <code>bengaluru</code></td>
-<td>maps old and alternate names (Gurgaon → Gurugram, Bombay → Mumbai)</td>
-</tr>
-<tr>
-<td><code>event_key</code></td>
-<td><code>woodside energy\|bengaluru\|new_gcc</code></td>
-<td>the identity of an event. For expansions it adds the month, so a later expansion can appear</td>
-</tr>
-<tr>
-<td><code>source_label</code></td>
-<td>"News", "Company post", "Press release", "Post"</td>
-<td>text shown on the link in the email</td>
-</tr>
-<tr>
-<td><code>source_host</code></td>
-<td><code>thehindu.com</code></td>
-<td>short site name shown in small grey text under the link</td>
-</tr>
-</tbody>
-</table>
-<p>Also: <code>SECTORS</code> (the 7 allowed sector names) and <code>canonical_url()</code> (removes tracking bits like <code>?utm_source=</code> and <code>www.</code>).</p>
-<h3 id="63-datespy-reading-messy-dates-30-lines">6.3 <code>dates.py</code> — reading messy dates (30 lines)</h3>
-<p>Google results say "2 days ago", "5 hours ago" or "Sep 18, 2026". <code>parse_web_date(text, today)</code> turns these into real dates:</p>
-<ul>
-<li>"N minutes/hours ago" → today; "N days ago" → today minus N; "N weeks ago" → minus 7N.</li>
-<li>ISO timestamps and common text formats work too. Anything it cannot understand returns <code>None</code> (never a guess).</li>
-</ul>
-<p>This matters: before this file existed, about 10 of 17 candidates in a test run were thrown away for having "no event date".</p>
-<h3 id="64-llmpy-the-ai-reader-63-lines">6.4 <code>llm.py</code> — the AI reader (63 lines)</h3>
-<p><strong><code>chat(settings, judge=False)</code></strong> builds an OpenAI chat model. Normal work uses <code>OPENAI_MODEL</code> (cheaper, default <code>gpt-4o-mini</code>);
-judging uses <code>OPENAI_JUDGE_MODEL</code> (stronger, default <code>gpt-4o</code>). Temperature 0 = as consistent as possible.</p>
-<p><strong><code>extract_items(settings, text, source, today, already_reported, default_date)</code></strong> is the workhorse used by every source:</p>
-<ol>
-<li>Gives the AI a strict instruction (<code>EXTRACT_SYSTEM</code>): only real GCC openings or expansions in India; use <strong>only</strong> facts in
-   the text; never invent dates, cities or URLs; skip rumours, hiring news, appointments, ordinary IT-services offices;
-   use the "Published:" date when the text has no better date.</li>
-<li>Adds today's date, the "already reported" list (do not return these) and the text (up to 24,000 characters).</li>
-<li>Forces the answer into the <code>ExtractionResult</code> form.</li>
-<li>Tags each result with the source name and returns a list of <code>GCC</code> records.</li>
-</ol>
-<p><strong><code>fill_missing_dates(items, default_date)</code></strong>: if the AI left a date empty but we know the page's publish date, use it.</p>
-<h3 id="65-tracingpy-langsmith-and-secret-safety-58-lines">6.5 <code>tracing.py</code> — LangSmith and secret safety (58 lines)</h3>
-<p>LangChain and LangGraph calls are traced automatically when <code>LANGSMITH_TRACING=true</code>. This file covers what they cannot see:</p>
-<ul>
-<li><code>trace_tool(name)</code> is a decorator that also records non-AI steps (Serper calls, URL checks, sending the email) as spans.
-  It uses <code>scrub_inputs</code>, which removes anything named <code>settings</code>, <code>browser</code>, <code>context</code>, <code>conn</code> or <code>page</code> <strong>before</strong> it is
-  recorded, so API keys never reach LangSmith.</li>
-<li><code>map_in_context(pool, fn, items)</code> is like <code>pool.map</code> for thread pools but copies the "current trace" into each worker thread.
-  Without it, work done in threads would show up as disconnected traces.</li>
-<li><code>init_tracing()</code> runs at startup and logs "enabled: project=..." or the reason it is off (for example, a missing key).</li>
-</ul>
-<h3 id="66-dbpy-the-memory-227-lines">6.6 <code>db.py</code> — the memory (227 lines)</h3>
-<p><strong>Purpose:</strong> everything that touches <code>data/gcc.db</code>. Details of the tables are in <a href="#8-the-database">Part 8</a>.</p>
-<table>
-<thead>
-<tr>
-<th>Function</th>
-<th>What it does</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>connect()</code></td>
-<td>Context manager: opens the file, creates tables if missing, runs <code>_migrate</code>, commits at the end (or rolls back on error)</td>
-</tr>
-<tr>
-<td><code>_migrate()</code></td>
-<td>Upgrades an older database by adding the <code>source_url</code> and <code>source_kind</code> columns</td>
-</tr>
-<tr>
-<td><code>is_duplicate(conn, item)</code></td>
-<td>True if the <code>event_key</code> exists, or the official press-release URL exists</td>
-</tr>
-<tr>
-<td><code>prior_for_company(conn, company)</code></td>
-<td>Earlier events for a company; shown to the judge so it can spot "same event, different words"</td>
-</tr>
-<tr>
-<td><code>reported_summary(conn)</code></td>
-<td>List of <code>"Company (City, type)"</code> strings given to the AI as an exclusion list</td>
-</tr>
-<tr>
-<td><code>save_report(...)</code></td>
-<td>Inserts one row into <code>reports</code> and one row per item into <code>gcc</code>. A duplicate that slips through is silently skipped by the database's UNIQUE rules</td>
-</tr>
-<tr>
-<td><code>load_report(conn, id)</code></td>
-<td>Rebuilds a saved report's items as <code>GCC</code> objects (used by <code>--resend-last</code>)</td>
-</tr>
-<tr>
-<td><code>list_items</code>, <code>stats</code>, <code>export_csv</code></td>
-<td>Query the year's data: filter by year, sector, city, type; counts by type/sector/city/month; CSV export</td>
-</tr>
-<tr>
-<td><code>reset(conn)</code></td>
-<td>Empties both tables (testing)</td>
-</tr>
-</tbody>
-</table>
-<h3 id="67-serper_sourcepy-google-search-95-lines">6.7 <code>serper_source.py</code> — Google search (95 lines)</h3>
-<p><strong>Purpose:</strong> ask Google what happened this week and pass the results to the AI.</p>
-<ul>
-<li><strong>Queries.</strong> 6 general ones ("GCC India opens new global capability centre", "GCC expansion India new facility seats"...)
-  plus 4 <code>site:</code> queries, one per GCC news site. Each query runs twice: as a normal web search and as a news search, both limited
-  to the past week (<code>tbs=qdr:w</code>), country India.</li>
-<li><strong>Speed.</strong> Up to 6 queries run in parallel threads (<code>map_in_context</code> keeps tracing connected).</li>
-<li><strong>Formatting.</strong> <code>_format</code> removes duplicate links and turns each hit into three lines: title | source | <em>Published: 2026-09-18</em>,
-  the snippet, and the link. Dates come from <code>parse_web_date</code>.</li>
-<li><strong>Reading.</strong> Results go to <code>extract_items</code> in chunks of 30 hits.</li>
-<li><strong>Retry mode (<code>attempt=1</code>).</strong> If the first pass approves nothing, it runs one query per city (15 Indian cities) instead.</li>
-<li><strong>Failure handling.</strong> Everything is inside <code>try/except</code>. On error it returns no candidates and a status like
-  <code>failed: ...</code>. One broken source must never crash the run.</li>
-</ul>
-<h3 id="68-x_sourcepy-xcom-through-groq-48-lines">6.8 <code>x_source.py</code> — X.com through Groq (48 lines)</h3>
-<ul>
-<li>One call to Groq's search model, told to search <strong>only</strong> x.com/twitter.com, for posts in the last 7 days about a company opening
-  or expanding a GCC in India.</li>
-<li>The answer plus the raw search hits are passed to <code>extract_items</code>, tagged <code>groq_x</code>.</li>
-<li>X posts are only <em>leads</em>: they go through exactly the same checks as everything else.</li>
-<li>Honest note: so far it found nothing, because X is mostly behind a login wall. If it stays empty, it costs money and adds no value.</li>
-</ul>
-<h3 id="69-the-site-adapters-sites">6.9 The site adapters (<code>sites/</code>)</h3>
-<p>Each adapter has one function, <code>fetch(...)</code>, that returns a list of <code>Doc</code> objects (<code>url</code>, <code>text</code>, <code>published</code> date, and
-optionally ready-made <code>items</code>).</p>
-<p><strong><code>sites/base.py</code> — shared helpers</strong></p>
-<ul>
-<li><code>USER_AGENT</code>: how our browser introduces itself.</li>
-<li><code>EVENT_TITLE</code>: a pattern (open, launch, inaugurate, expand, "set up", unveil...). Used to skip trend pieces and
-  interviews before spending time on them.</li>
-<li><code>SiteBlocked</code> and <code>SiteSkipped</code>: two "expected" problems (bot protection; missing credentials).</li>
-<li><code>Doc</code>: the result container. <code>in_window()</code> checks a date is inside the window (±1 day of slack).</li>
-<li><code>parse_any_date()</code>, <code>chunk_docs()</code>: small helpers.</li>
-</ul>
-<p><strong><code>sites/et_gcc.py</code> — Economic Times GCC</strong></p>
-<ol>
-<li>Loads the news listing page in Chrome.</li>
-<li><code>parse_listing()</code> keeps only article links (pattern <code>/news/&lt;category&gt;/&lt;slug&gt;/&lt;number&gt;</code>) whose <em>title</em> looks like an event, up to 25.</li>
-<li>Opens each article and reads <code>datePublished</code> and body text from its JSON-LD (<code>parse_article_ld</code>).</li>
-<li>Keeps only articles inside the window.</li>
-</ol>
-<p><strong><code>sites/gcc_pulse.py</code> — GCC Pulse</strong></p>
-<p>The list is built by JavaScript after the page loads, so a plain download would see an empty page. The adapter waits for
-<code>#news-results .news-day</code>, then reads each day's date and each item's title and text. No article visits are needed.</p>
-<p><strong><code>sites/moneycontrol.py</code> — Moneycontrol</strong></p>
-<p>The site answers with "Access Denied" to automated browsers. The adapter detects that and raises <code>SiteBlocked</code>. It deliberately does
-<strong>not</strong> try to disguise the browser. Moneycontrol news still reaches the system indirectly through Serper's <code>site:moneycontrol.com</code> query.</p>
-<p><strong><code>sites/gccindex.py</code> — GCC Index (login)</strong></p>
-<ul>
-<li>Uses your <code>GCCINDEX_USERNAME/PASSWORD</code> <strong>only</strong> to fill the site's own login form. The logged-in session is saved to
-  <code>data/gccindex_state.json</code> so it logs in only when the session expires.</li>
-<li>The events page loads its own data from an internal feed (<code>/events/data</code>) with exact dates. The adapter opens the page normally,
-  lets the page make that request, and reads the response. It never calls the feed directly (the site forbids that).</li>
-<li>It selects "20 / page" using the page's own dropdown so one visit covers more than a week.</li>
-<li><code>parse_events()</code> converts each JSON row into a <code>GCC</code> (exact <code>announcementDate</code>, <code>NEW_GCC</code> / <code>EXPANSION</code>, city, sector mapped
-  to our 7 sectors, description as summary). <strong>No AI is used here</strong>: the data is already structured.</li>
-<li>It keeps rows up to about four months old. Evaluate rejects the old ones cheaply, and uses them to detect stale re-reports.</li>
-<li>Writes <code>data/gccindex_debug.txt</code> (local only) for troubleshooting.</li>
-</ul>
-<h3 id="610-sites_sourcepy-running-the-adapters-80-lines">6.10 <code>sites_source.py</code> — running the adapters (80 lines)</h3>
-<ol>
-<li>Starts <strong>one</strong> hidden Chrome for all sites.</li>
-<li>For each enabled site: opens a fresh browser context (GCC Index manages its own), calls <code>_scrape(...)</code> (a traced wrapper around
-   <code>adapter.fetch</code>).</li>
-<li>For each returned <code>Doc</code>: if it has ready-made <code>items</code> (GCC Index) use them; otherwise send the document to <code>extract_items</code>
-   <strong>one document at a time</strong>, so each result inherits its own publish date if the AI left it blank.</li>
-<li>Records a status per site: <code>ok: 5 docs, 4 candidates</code>, <code>skipped: ...</code>, <code>blocked: ...</code> or <code>failed: ...</code>.
-   Each site is wrapped separately, so one failing site does not affect the others.</li>
-</ol>
-<h3 id="611-evaluate_agentpy-the-judge-500-lines-the-most-important-file">6.11 <code>evaluate_agent.py</code> — the judge (500 lines, the most important file)</h3>
-<p>This decides what reaches the email. It runs in a strict order so cheap checks come before expensive ones.</p>
+<h3 id="75-evaluate_agentpy-the-judge">7.5 <code>evaluate_agent.py</code> — the judge</h3>
+<p>Cheap checks first, AI last:</p>
 <div class="mermaid">flowchart TD
-    A["new candidates"] --> B["merge_candidates<br/>same company + city within 14 days = one item"]
-    B --> C{"precheck<br/>company, city, date, in window, status allowed"}
+    A["candidates"] --> B["merge duplicates<br/>same company (or brand) + city, close dates"]
+    B --> C{"rules<br/>company? city? date in window<br/>(or late coverage)? not a competitor?<br/>not a generic name?"}
     C -->|fail| RJ["rejected, reason logged"]
-    C -->|pass| ST{"stale?<br/>same GCC announced 15+ days earlier"}
+    C -->|pass| ST{"stale?<br/>same new GCC announced 15+ days earlier"}
     ST -->|yes| RJ
     ST -->|no| D{"already in the database?"}
-    D -->|yes| DUP["counted as already reported"]
-    D -->|no| G["AI judge<br/>real GCC event in India?<br/>type, status, sector, same as earlier?"]
-    G -->|"no, or same as earlier"| RJ
-    G -->|yes| H{"claimed press release<br/>passes URL + page checks?"}
-    H -->|yes| K["final duplicate check"]
-    H -->|no| I["find_press_release<br/>Google, wire services, company website"]
-    I -->|found| K
-    I -->|"none"| FB["choose_fallback<br/>company post, then news article<br/>each news link is checked by the AI"]
-    FB -->|"a relevant link"| K
-    FB -->|"no link at all"| RJ
-    K -->|duplicate| DUP
-    K -->|new| OK["approved"]
+    D -->|"yes, already emailed"| DUP["counted as already reported"]
+    D -->|"yes, collected daily"| PEND["comes back as 'pending' in the weekly email"]
+    D -->|no| G["AI judge<br/>genuine GCC event in India?<br/>type, status, sector"]
+    G -->|no| RJ
+    G -->|yes| H["source link<br/>press release > company post > news<br/>each checked to be about this event"]
+    H -->|"no link at all"| RJ
+    H -->|found| OK["approved"]
 </div>
-<p><strong>Step 1: <code>merge_candidates</code>.</strong> Three sources may report the same event. Records with the same company key and city key, and dates
-within 14 days, become one record (sources and links are combined, "opened" beats "announced"). Sources are ranked
-(ET GCC first, then GCC Pulse, Serper, GCC Index, X, Moneycontrol) to decide which record leads.</p>
-<p><strong>Step 2: <code>precheck</code>.</strong> Pure rules, no AI: company name present; city present; a date present; date within the last 7 days (and
-not more than a day in the future); status allowed (if <code>INCLUDE_ANNOUNCED</code> is off, only "opened").</p>
-<p><strong>Step 3: stale check.</strong> Some articles about an <em>old</em> event are published this week. If any candidate shows the same company and
-city as a "new GCC" more than 14 days <em>earlier</em> (for example GCC Index lists it on 25 Aug), the late article is rejected as
-"stale". Real example: Syneos Health in Hyderabad.</p>
-<p><strong>Step 4: database check.</strong> <code>db.is_duplicate</code> (see Part 7).</p>
-<p><strong>Step 5: the AI judge (<code>_judge</code>, <code>Verdict</code>).</strong> A stronger model receives the record plus earlier records for the same company.
-It returns: <code>in_scope</code> (a genuine GCC event in India, not a rumour, hiring news, layoffs, appointment, conference, ordinary
-IT-services office), <code>event_type</code>, <code>status</code>, <code>sector</code> (one of the 7), <code>same_as_prior</code>, and a one-line <code>reason</code>.</p>
-<p><strong>Step 6: choose the source link.</strong> In order of preference. Approval does <strong>not</strong> depend on finding an official press release.</p>
+<p>Notable rules: IT-services firms (Infosys, TCS, HCLTech, LTM itself, Accenture…) are competitors, never GCCs;
+names made only of generic words ("Global Transport and Logistics") are rejected; placeholder cities ("unknown")
+count as missing; <strong>late coverage</strong> — news inside the window about an event shortly before it — is kept.</p>
+<h3 id="76-ltmpy-and-insights_agentpy-the-ltm-view">7.6 <code>ltm.py</code> and <code>insights_agent.py</code> — the LTM view</h3>
+<p><code>ltm.py</code> holds the LTM colours and the <strong>GCC Origin catalogue</strong> taken from the launch release: services (Design &amp;
+advisory, Talent &amp; workforce, AI agents &amp; studios, Operate &amp; transform, Transfer, Site &amp; infrastructure) and
+engagement models (Assisted GCC, Build-Operate-Transform-Transfer, Virtual GCC, Joint Venture, Staff Augmentation,
+Hire-Operate-Transfer).</p>
+<p><code>insights_agent.analyse</code> gathers context (summary, the source page, a company-profile search) and asks the stronger
+model for an <code>LTMInsight</code>. Facts must come from the context ("Not disclosed" otherwise); the fit is <strong>calibrated</strong>
+(only clear opportunities are High); <code>_clean</code> forces services and model back inside the real catalogue. <code>enrich</code>
+runs several companies in parallel and never drops a company if its analysis fails.</p>
+<h3 id="77-report-report_agentpy-visualspy-pdfpy-templates">7.7 Report: <code>report_agent.py</code>, <code>visuals.py</code>, <code>pdf.py</code>, templates</h3>
+<ul>
+<li><strong>Email — "India GCC Report"</strong> (<code>templates/report.html.j2</code>): black LTM brand bar and coral particle-wave hero,
+  headline "India GCC Report", KPIs, an LTM-perspective executive summary, an overview table (high fit first,
+  phone-safe), "Where GCC Origin can engage first", the sector chart, and a note that the PDF is attached. Subject:
+  <code>India GCC Report | 11 new GCCs · 5 expansions · 19 Oct 2026 – 02 Nov 2026</code>.</li>
+<li><strong>PDF — "India GCC Weekly Intel Report"</strong> (<code>templates/briefing.html.j2</code>): cover, executive overview (KPIs, full
+  table with scale, fit and model, sector and city charts), one account profile per company (business area,
+  products, the India centre, scale, source, "How LTM wins", next step), and a GCC Origin reference page.</li>
+<li>Large selections stay readable: the email table shows 40 rows ("+N more in the attached report"); the PDF lists
+  every GCC in the overview and profiles up to 40 (analysed and new GCCs first).</li>
+<li><code>visuals.py</code> draws the hero wave and charts with matplotlib; <code>pdf.py</code> renders the cover and body separately with
+  Chromium (body gets a footer with page numbers) and joins them.</li>
+</ul>
+<h3 id="78-email_agentpy-sending">7.8 <code>email_agent.py</code> — sending</h3>
+<p>Builds <code>mixed → related → alternative</code> (text + HTML, inline images, PDF attached), sends via <code>smtp.gmail.com:465</code>
+with your app password, retries once, never raises. <code>parse_recipients</code> accepts several addresses
+(comma/semicolon/newline separated) and rejects invalid ones.</p>
+<h3 id="79-graphpy-the-flow">7.9 <code>graph.py</code> — the flow</h3>
+<p>Nodes: <code>prepare</code>, <code>serper</code>, <code>x</code>, <code>sites</code> (parallel), <code>evaluate</code>, <code>serper_retry</code>, <code>insights</code>, <code>report</code>, <code>email</code>,
+<code>collect</code>, <code>skip</code>, <code>search_failed</code>. Shared state includes <code>candidates</code>, <code>approved</code>, <code>pending</code> (collected but not yet
+emailed), <code>enriched</code>, <code>source_status</code> and <code>outcome</code>.</p>
+<ul>
+<li><strong>email mode</strong>: approved + pending → insights → report → email; on success everything is linked to the report.</li>
+<li><strong>collect mode</strong>: approved → <code>collect</code> saves with <code>origin = daily</code>; no email, no email-history row.</li>
+<li><code>record_run</code> writes <code>data/last_run.json</code> (every candidate and its outcome) for <code>--why</code>.</li>
+</ul>
+<h3 id="710-dbpy-and-mainpy">7.10 <code>db.py</code> and <code>main.py</code></h3>
+<p><code>db.py</code> holds every SQL statement (Part 10). <code>main.py</code> parses flags and dispatches; every scheduled run is wrapped
+so a crash is logged and the scheduler keeps going.</p>
+<hr />
+<h2 id="8-the-dashboard-the-backfill-and-the-daily-refresh">8. The dashboard, the backfill and the daily refresh</h2>
+<h3 id="81-what-you-see">8.1 What you see</h3>
+<p>Open <code>http://127.0.0.1:8000</code> after <code>python main.py --dashboard</code>.</p>
 <table>
 <thead>
 <tr>
-<th>Preference</th>
-<th>What it is</th>
-<th>How it is checked</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>1. <strong>Press release</strong></td>
-<td>An official page: PR wire, government site, or a domain that contains the company name</td>
-<td><code>verify_url</code>: not a careers, contact, about or locations page; fetchable; mentions the company; mentions the city or India; reads like an announcement. Then <code>confirm_announcement</code>: the AI reads the page and confirms it is <em>itself</em> the announcement. If the page blocks robots (403), it is accepted only on a PR wire/government host, or when the URL looks like a specific article (not an index such as <code>/media-centre/announcements</code>).</td>
-</tr>
-<tr>
-<td>2. <strong>Company post</strong></td>
-<td>A post on the company's <em>own</em> LinkedIn or X account</td>
-<td><code>is_company_post</code>: the account name in the URL must contain the company name. A third party's post about the company does not count.</td>
-</tr>
-<tr>
-<td>3. <strong>News</strong> (or Post)</td>
-<td>The article that reported the event, or a search hit about the company</td>
-<td><code>news_is_relevant</code>: the page is fetched and the AI confirms it is about this event. If the page is unreadable (paywall), it is accepted only on strong hints in the URL or snippet (company name plus city or "GCC"). Junk sites (job boards, Glassdoor, GCC Index) are skipped. Only the first 4 news links are checked, to bound cost.</td>
-</tr>
-</tbody>
-</table>
-<p><code>find_press_release</code> searches Google, then the PR wires (PR Newswire, Business Wire, GlobeNewswire), then discovers the company's
-own website (<code>_company_domain</code>) and searches inside it. It gives up after a per-run budget (<code>MAX_RESOLVE_PER_RUN = 20</code>).
-If none is found, an item is still approved with a company post or news link. It is rejected only if <strong>no link at all</strong> exists.</p>
-<p><strong>Step 7: final duplicate check</strong>, then approved. Judging runs in 4 parallel threads (<code>map_in_context</code>).</p>
-<p>The function returns <code>(approved, rejected, already_reported_count)</code>. Every rejection carries a reason.</p>
-<h3 id="612-report_agentpy-and-templatesreporthtmlj2-the-email-130-94-lines">6.12 <code>report_agent.py</code> and <code>templates/report.html.j2</code> — the email (130 + 94 lines)</h3>
-<p><strong><code>report_agent.build()</code></strong> returns a <code>Report(subject, html, text, chart_png, chart_cid)</code>:</p>
-<ul>
-<li><strong>Order:</strong> new GCCs first, then expansions; oldest date first within each.</li>
-<li><strong>Subject:</strong> <code>GCC India Weekly: 4 new GCCs, 2 expansions (13 Sep 2026 – 20 Sep 2026)</code>, or <code>... no new GCC activity (...)</code>.</li>
-<li><strong>Summary:</strong> <code>executive_summary</code> asks the AI for 2–3 sentences using only the facts given. On any error it falls back to a fixed sentence.</li>
-<li><strong>Pie chart:</strong> <code>sector_pie</code> draws with matplotlib in a headless mode, near-square with the legend underneath so it stays readable
-  when a phone shrinks it. Returns PNG bytes.</li>
-<li><strong>Plain-text version:</strong> for mail apps that do not show HTML. One block per item.</li>
-</ul>
-<p><strong>The template</strong> (Jinja2, with auto-escaping so text in a company name can never inject HTML):</p>
-<ul>
-<li>Header with the date range; summary paragraph; three counters (New GCCs, Expansions, Cities).</li>
-<li><strong>One card per company</strong> (not a table). Each card has the name and a green <em>New GCC</em> / orange <em>Expansion</em> badge, the summary, then three
-  labelled rows: <em>Location</em> (city, state, with the sector in grey below), <em>Date</em>, <em>Source</em> (the link labelled "Press release", "Company post" or "News",
-  with the short site name beside it). A small "Announced" note appears only for items that are announced rather than opened.</li>
-<li>The pie chart, referenced as <code>cid:sector_pie</code>.</li>
-<li>A footer line only if some items were already reported earlier.</li>
-<li><strong>Why cards:</strong> a five-column table overlapped on phones. Stacked cards cannot overlap at any width. The layout is fluid
-  (<code>width:100%; max-width:720px</code>) and has a small <code>@media</code> tweak for narrow screens.</li>
-</ul>
-<h3 id="613-email_agentpy-sending-59-lines">6.13 <code>email_agent.py</code> — sending (59 lines)</h3>
-<ul>
-<li><code>build_message</code> makes a <code>multipart/related</code> email containing a <code>multipart/alternative</code> (plain text and HTML) plus the chart as an
-  inline image with <code>Content-ID: &lt;sector_pie&gt;</code>, so the HTML's <code>cid:sector_pie</code> shows it.</li>
-<li><code>send</code> connects to <code>smtp.gmail.com:465</code> over SSL, logs in with your app password (spaces removed), sends, and <strong>retries once</strong>.
-  It never raises an error: it returns <code>(True, "sent")</code> or <code>(False, reason)</code>, and the caller decides what to do.</li>
-<li><code>missing_config</code> reports which of <code>GMAIL_USER</code>, <code>GMAIL_APP_PASSWORD</code>, <code>TO_EMAIL</code> are empty.</li>
-</ul>
-<h3 id="614-graphpy-the-flowchart-in-code-194-lines">6.14 <code>graph.py</code> — the flowchart in code (194 lines)</h3>
-<p><code>build_graph(settings, dry_run, today)</code> defines the nodes as small functions inside one function, so they can use <code>settings</code>:</p>
-<table>
-<thead>
-<tr>
-<th>Node</th>
+<th>Area</th>
 <th>What it does</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>prepare</code></td>
-<td>Sets <code>today</code>, the window and the already-reported list; resets counters</td>
+<td><strong>Header</strong></td>
+<td>LTM wordmark, "GCC Origin · Market Radar", coral wave</td>
 </tr>
 <tr>
-<td><code>serper</code>, <code>x</code>, <code>sites</code></td>
-<td>Run each source; return <code>candidates</code> and a <code>source_status</code></td>
+<td><strong>Filters</strong></td>
+<td>From/To dates, Month, City, Sector, Type, LTM fit, Search; quick ranges (last 2 weeks, 30 days, this quarter, year to date); Reset</td>
 </tr>
 <tr>
-<td><code>serper_retry</code></td>
-<td>Runs Google again city-by-city; increments <code>attempts</code></td>
+<td><strong>KPI tiles</strong></td>
+<td>GCCs in view, New GCCs, Expansions, Cities, High-fit for LTM</td>
 </tr>
 <tr>
-<td><code>evaluate</code></td>
-<td>Judges only the <em>new</em> candidates (<code>processed</code> remembers how many were done, so a retry does not re-judge). Logs a rejection line per rejected item, and one summary line for old items outside the window</td>
+<td><strong>Actions</strong></td>
+<td>Email report, Download PDF, Download CSV</td>
 </tr>
 <tr>
-<td><code>search_failed</code></td>
-<td>Records a <code>search_failed</code> row in <code>reports</code> (unless dry run) and ends</td>
+<td><strong>Charts</strong></td>
+<td>GCCs by month, sector mix, top cities — click a bar or slice to filter by it</td>
 </tr>
 <tr>
-<td><code>report</code></td>
-<td>Calls <code>report_agent.build</code></td>
+<td><strong>Table</strong></td>
+<td>Sortable columns, 25 per page; click a row for details</td>
 </tr>
 <tr>
-<td><code>skip</code></td>
-<td>Used when an empty week should not be emailed</td>
+<td><strong>Detail drawer</strong></td>
+<td>What happened, scale, source, found by, and the LTM analysis — or an <strong>Analyse for LTM</strong> button</td>
 </tr>
 <tr>
-<td><code>email</code></td>
-<td>Dry run: writes <code>data/preview.html</code> with the chart embedded. Real run: sends; only if it worked, saves the archive HTML and the items; if it failed, records <code>send_failed</code> <strong>without</strong> saving items</td>
+<td><strong>Email dialog</strong></td>
+<td>Recipients (several), "Save as default", Send</td>
 </tr>
 </tbody>
 </table>
-<p><strong>Routing functions:</strong></p>
-<ul>
-<li><code>route_after_evaluate</code>: approved → <code>report</code>; else if no source status starts with "ok" → <code>search_failed</code>; else if the retry is unused
-  and Serper is available → <code>serper_retry</code>; else → <code>report</code> (the empty-week email).</li>
-<li><code>route_after_report</code>: no items and empty emails off → <code>skip</code>; otherwise → <code>email</code>.</li>
-</ul>
-<p><strong>State fields</strong> (the shared notebook): <code>candidates</code>, <code>approved</code>, <code>rejected</code>, <code>already_reported_count</code> (all appended by the reducer);
-<code>source_status</code> (dictionaries merged); <code>processed</code>, <code>attempts</code>, <code>report</code>, <code>outcome</code> (overwritten).</p>
-<p><code>run_once</code> compiles the graph, attaches LangSmith tags and metadata (dry-run vs live, sources, models), runs it, logs the outcome and
-returns the final state. Possible outcomes: <code>sent</code>, <code>send_failed</code>, <code>dry_run</code>, <code>nothing_to_send</code>, <code>search_failed</code>.</p>
-<h3 id="615-mainpy-the-command-line-174-lines">6.15 <code>main.py</code> — the command line (174 lines)</h3>
-<p><code>main.py</code> reads the flags, sets up logging (console and <code>data/run.log</code>), and dispatches. Order of checks: <code>--graph</code>, then tracing
-setup, <code>--only</code> validation, <code>--reset-db</code>, list/stats/export, <code>--resend-last</code>, <code>--schedule</code>, then <code>--once</code>/<code>--dry-run</code>.</p>
-<ul>
-<li><code>safe_run</code> wraps every scheduled run in try/except so a crash is logged and the scheduler keeps going.</li>
-<li><code>--schedule</code> uses APScheduler: default every 5 minutes (runs immediately, <code>max_instances=1</code>, <code>coalesce=True</code>), or <code>--cron "mon 09:00"</code>
-  for weekly (<code>parse_cron</code> converts the text).</li>
-<li><code>resend_last</code> rebuilds the last sent report from the database, renders it with the <em>current</em> template, and sends it again. It does not
-  change the database. Used after layout changes.</li>
-<li>Exit code 2 when the outcome is <code>search_failed</code> (useful for schedulers and monitors).</li>
-</ul>
+<p>Filters live in the address bar, so a view can be bookmarked. The page works on a phone.</p>
+<h3 id="82-how-it-works-dashboardapppy">8.2 How it works (<code>dashboard/app.py</code>)</h3>
+<table>
+<thead>
+<tr>
+<th>Endpoint</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GET /</code> and <code>/hero.png</code></td>
+<td>the page and the hero image</td>
+</tr>
+<tr>
+<td><code>GET /api/facets</code></td>
+<td>months, cities (one per canonical city), sectors, date range</td>
+</tr>
+<tr>
+<td><code>GET /api/gccs?filters</code></td>
+<td>matching GCCs + KPIs + chart series</td>
+</tr>
+<tr>
+<td><code>GET /api/gcc/{id}</code></td>
+<td>one GCC with its analysis</td>
+</tr>
+<tr>
+<td><code>POST /api/gcc/{id}/analyse</code></td>
+<td>run the LTM analysis for one GCC and save it</td>
+</tr>
+<tr>
+<td><code>GET /api/report.pdf?filters</code></td>
+<td>the India GCC Weekly Intel Report for the current filter</td>
+</tr>
+<tr>
+<td><code>GET /api/export.csv?filters</code></td>
+<td>the filtered rows (opens in Excel)</td>
+</tr>
+<tr>
+<td><code>GET /api/recipients</code>, <code>POST /api/email</code></td>
+<td>saved recipients; send the report for the current filter</td>
+</tr>
+</tbody>
+</table>
+<p>Filters: <code>start</code>, <code>end</code>, <code>month</code>, <code>city</code>, <code>sector</code>, <code>type</code>, <code>fit</code> (<code>High</code>/<code>Medium</code>/<code>Low</code>/<code>none</code>), <code>q</code> (searches
+company, city, sector, summary and the LTM analysis). Reports and emails first analyse up to 25 un-analysed GCCs in
+the selection (cost/time guard).</p>
+<p><strong>Safety.</strong> The server listens on 127.0.0.1 only. Calls that send email or spend API credits must carry the header
+<code>X-GCC-Dashboard: 1</code>; a browser cannot add that to a request from another website, so a page you visit cannot
+trigger them. All text from the web is escaped before display, and only <code>http(s)</code> links are shown.</p>
+<p>The page (<code>static/index.html</code>) is plain HTML/CSS/JavaScript with hand-drawn SVG charts — no external libraries.</p>
+<h3 id="83-backfill-backfillpy">8.3 Backfill (<code>backfill.py</code>)</h3>
+<p><code>python main.py --backfill 2026</code>:</p>
+<ol>
+<li><strong>GCC Index</strong> — every 2026 row from the feed your logged-in session receives.</li>
+<li><strong>Google, one month at a time</strong> — only results whose own date is inside that month (undated results made the AI
+   guess month-end dates).</li>
+<li>Same rules as the weekly run, plus <strong>one new GCC per company and city per year</strong> (GCC Index's exact date wins).</li>
+<li>Google-only items go through the AI judge; GCC Index rows are already validated.</li>
+<li>Saved with <code>origin = backfill</code>, stopping at the end of the last emailed week (so newer GCCs still go out by email).</li>
+<li><strong>Sector clean-up</strong>: rows left as "Other" are re-classified in batches (<code>--fix-sectors</code> runs this alone).</li>
+</ol>
+<h3 id="84-daily-refresh">8.4 Daily refresh</h3>
+<p><code>python main.py --refresh</code> = the normal pipeline in <strong>collect</strong> mode with a 3-day window (overlapping, so a missed
+day is still covered). New GCCs are saved at once (<code>origin = daily</code>) and show up in the dashboard. The next weekly
+email includes them and marks them as reported.</p>
 <hr />
-<h2 id="7-the-rules-the-system-follows">7. The rules the system follows</h2>
+<h2 id="9-the-rules-the-system-follows">9. The rules the system follows</h2>
 <table>
 <thead>
 <tr>
 <th>Rule</th>
-<th>Where enforced</th>
+<th>Where</th>
 <th>Why</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><strong>A "new GCC" is new only once, ever</strong></td>
-<td><code>event_key = company\|city\|new_gcc</code> is UNIQUE in the database</td>
-<td>The same GCC must never be reported twice</td>
+<td>A "new GCC" is new once, ever</td>
+<td>unique <code>event_key</code></td>
+<td>never report the same GCC twice</td>
 </tr>
 <tr>
-<td><strong>An expansion can repeat, but not the same story</strong></td>
-<td><code>event_key</code> includes the month for expansions</td>
-<td>A genuinely later expansion is news; a re-run of the same one is not</td>
+<td>Expansions can recur, not the same story</td>
+<td><code>event_key</code> includes the month</td>
+<td>a later expansion is news</td>
 </tr>
 <tr>
-<td><strong>Same official press-release URL is unique</strong></td>
-<td>partial UNIQUE index on <code>press_release_url</code></td>
-<td>Second safety net</td>
-</tr>
-<tr>
-<td><strong>Old news is not new</strong></td>
-<td><code>stale:</code> check in <code>evaluate_agent.run</code></td>
-<td>Late articles about earlier events</td>
-</tr>
-<tr>
-<td><strong>Only the last 7 days</strong></td>
+<td>Only the window (14 days weekly, 3 daily), plus late coverage</td>
 <td><code>precheck</code></td>
-<td>The report is weekly</td>
+<td>currency</td>
 </tr>
 <tr>
-<td><strong>No rumours, hiring news, appointments, layoffs, conferences</strong></td>
-<td>AI prompts in <code>llm.py</code> and <code>evaluate_agent.py</code></td>
-<td>Not GCC arrivals or expansions</td>
+<td>Old news is not new</td>
+<td>stale check</td>
+<td>late articles about earlier events</td>
 </tr>
 <tr>
-<td><strong>Every item has a source link, labelled honestly</strong></td>
-<td><code>evaluate_agent</code> + template</td>
-<td>You can verify anything you read</td>
+<td>One item per company in multi-company news</td>
+<td>extraction prompt</td>
+<td>cabinet approvals list several firms</td>
 </tr>
 <tr>
-<td><strong>Don't invent facts</strong></td>
-<td>Extraction prompt; summary prompt uses only given facts</td>
-<td>AI models can hallucinate</td>
+<td>Competitors, governments and generic names are never GCCs</td>
+<td>rules + judge</td>
+<td>executive accuracy</td>
 </tr>
 <tr>
-<td><strong>Never say "nothing new" if we could not look</strong></td>
-<td><code>search_failed</code> branch in <code>graph.py</code></td>
-<td>A false negative is worse than no email</td>
+<td>Every item has a labelled source link</td>
+<td>evaluate + templates</td>
+<td>verifiability</td>
 </tr>
 <tr>
-<td><strong>Never mark items reported unless the email was sent</strong></td>
-<td><code>email</code> node in <code>graph.py</code></td>
-<td>A failed send must not hide items</td>
+<td>Recommendations only from the GCC Origin catalogue</td>
+<td><code>ltm.py</code>, <code>insights_agent._clean</code></td>
+<td>no invented LTM offers</td>
 </tr>
 <tr>
-<td><strong>One source failing must not stop the run</strong></td>
-<td>try/except in every source; per-site status</td>
-<td>Websites change or block</td>
+<td>Never "nothing new" if we could not look</td>
+<td><code>search_failed</code></td>
+<td>a false negative is worse than no email</td>
 </tr>
 <tr>
-<td><strong>Don't bypass bot protection or site rules</strong></td>
-<td>Moneycontrol adapter; GCC Index never called directly</td>
-<td>Respect the sites</td>
+<td>Reported only after the email is sent</td>
+<td><code>email</code> node</td>
+<td>a failed send must not hide items</td>
 </tr>
 <tr>
-<td><strong>Keys never leave your machine</strong></td>
-<td><code>.gitignore</code>, <code>repr=False</code>, <code>scrub_inputs</code></td>
-<td>Security</td>
+<td>One source failing never stops the run</td>
+<td>per-source try/except</td>
+<td>websites change and block</td>
+</tr>
+<tr>
+<td>Don't bypass site protections</td>
+<td>Moneycontrol, GCC Index</td>
+<td>respect the sources</td>
+</tr>
+<tr>
+<td>Keys never leave your machine</td>
+<td><code>.gitignore</code>, <code>repr=False</code>, scrubbed traces, offline tests</td>
+<td>security</td>
 </tr>
 </tbody>
 </table>
 <hr />
-<h2 id="8-the-database">8. The database</h2>
-<p>File: <code>data/gcc.db</code> (SQLite). Created automatically. It is ignored by git.</p>
-<p><strong>Table <code>reports</code></strong>: one row per run that reached the end.</p>
-<table>
-<thead>
-<tr>
-<th>Column</th>
-<th>Meaning</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>id</code>, <code>run_at</code></td>
-<td>Which run and when</td>
-</tr>
-<tr>
-<td><code>window_start</code>, <code>window_end</code></td>
-<td>The 7 days covered</td>
-</tr>
-<tr>
-<td><code>new_count</code>, <code>expansion_count</code></td>
-<td>How many of each were sent</td>
-</tr>
-<tr>
-<td><code>email_status</code></td>
-<td><code>sent</code>, <code>send_failed</code> or <code>search_failed</code></td>
-</tr>
-<tr>
-<td><code>sent_at</code>, <code>html_path</code></td>
-<td>When it was sent; path of the saved copy</td>
-</tr>
-<tr>
-<td><code>source_status</code></td>
-<td>JSON of what each source did</td>
-</tr>
-</tbody>
-</table>
-<p><strong>Table <code>gcc</code></strong>: one row per reported event.</p>
+<h2 id="10-the-database">10. The database</h2>
+<p>One SQLite file, <code>data/gcc.db</code> (git-ignored; copy it when moving machines).</p>
+<p><strong><code>gcc</code></strong> — one row per GCC event:</p>
 <table>
 <thead>
 <tr>
@@ -851,261 +762,224 @@ setup, <code>--only</code> validation, <code>--reset-db</code>, list/stats/expor
 <tbody>
 <tr>
 <td><code>company</code>, <code>city</code>, <code>state</code>, <code>sector</code></td>
-<td>Who and where (plus normalised <code>company_key</code>, <code>city_key</code>)</td>
+<td>who and where (<code>company_key</code>, <code>city_key</code> normalised)</td>
 </tr>
 <tr>
-<td><code>event_type</code></td>
-<td><code>new_gcc</code> or <code>expansion</code></td>
+<td><code>event_type</code>, <code>status</code>, <code>event_date</code></td>
+<td>new_gcc/expansion, opened/announced, when</td>
 </tr>
 <tr>
-<td><code>status</code></td>
-<td><code>opened</code> or <code>announced</code></td>
+<td><code>headcount</code>, <code>summary</code></td>
+<td>size and description</td>
 </tr>
 <tr>
-<td><code>event_date</code>, <code>headcount</code>, <code>summary</code></td>
-<td>When, size, description</td>
+<td><code>source_url</code>, <code>source_kind</code>, <code>press_release_url</code></td>
+<td>the link shown, its kind, a verified official release</td>
 </tr>
 <tr>
-<td><code>source_url</code>, <code>source_kind</code></td>
-<td>The link shown in the email and its kind</td>
+<td><code>insight</code></td>
+<td>the LTM analysis (JSON), filled on demand or at email time</td>
 </tr>
 <tr>
-<td><code>press_release_url</code></td>
-<td>Only filled when the source is a verified official release (unique when present)</td>
-</tr>
-<tr>
-<td><code>source_urls</code>, <code>discovery_sources</code></td>
-<td>JSON: all links seen and which sources found it</td>
+<td><code>origin</code></td>
+<td><code>weekly</code>, <code>daily</code> or <code>backfill</code></td>
 </tr>
 <tr>
 <td><code>event_key</code></td>
-<td><strong>UNIQUE</strong>: the identity used to stop repeats</td>
+<td><strong>unique</strong> identity that stops repeats</td>
 </tr>
 <tr>
-<td><code>first_reported_at</code>, <code>report_id</code></td>
-<td>When first reported, and in which report</td>
+<td><code>report_id</code></td>
+<td>which email carried it (empty = not emailed yet)</td>
+</tr>
+<tr>
+<td><code>source_urls</code>, <code>discovery_sources</code>, <code>first_reported_at</code></td>
+<td>all links, which sources found it, when stored</td>
 </tr>
 </tbody>
 </table>
-<p>Every item ever reported stays in <code>gcc</code>, so you can ask year-round questions:
-<code>python main.py --list --year 2026</code>, <code>--stats --year 2026</code>, <code>--export-csv gcc_2026.csv</code>.</p>
+<p><strong><code>reports</code></strong> — one row per weekly email attempt (<code>sent</code>, <code>send_failed</code>, <code>search_failed</code>) with window, counts and
+the saved HTML path. <strong><code>app_settings</code></strong> — the dashboard's saved default recipients.</p>
+<p>Quick looks: <code>python main.py --list --year 2026</code>, <code>--stats --year 2026</code>, <code>--export-csv gcc_2026.csv</code> — or use the
+dashboard.</p>
 <hr />
-<h2 id="9-configuration-and-commands">9. Configuration and commands</h2>
-<h3 id="env-settings"><code>.env</code> settings</h3>
+<h2 id="11-settings-commands-and-tests">11. Settings, commands and tests</h2>
+<h3 id="settings-env">Settings (<code>.env</code>)</h3>
+<p><code>OPENAI_API_KEY</code>, <code>OPENAI_MODEL</code> (default <code>gpt-4o-mini</code>), <code>OPENAI_JUDGE_MODEL</code> (<code>gpt-4o</code>), <code>SERPER_API_KEY</code>,
+<code>GROQ_API_KEY</code>, <code>GROQ_MODEL</code>, <code>GCCINDEX_USERNAME</code>, <code>GCCINDEX_PASSWORD</code>, <code>GMAIL_USER</code>, <code>GMAIL_APP_PASSWORD</code>,
+<code>TO_EMAIL</code> (comma-separated allowed), <code>LANGSMITH_TRACING</code>, <code>LANGSMITH_API_KEY</code>, <code>LANGSMITH_PROJECT</code>,
+<code>LOOKBACK_DAYS</code> (14), <code>DAILY_LOOKBACK_DAYS</code> (3), <code>SEND_EMPTY_REPORT</code> (true), <code>INCLUDE_ANNOUNCED</code> (true),
+<code>DISABLED_SOURCES</code> (e.g. <code>groq_x</code>).</p>
+<h3 id="all-commands">All commands</h3>
 <table>
 <thead>
 <tr>
-<th>Setting</th>
-<th>Required?</th>
-<th>Purpose</th>
+<th>Command</th>
+<th>What it does</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>OPENAI_API_KEY</code></td>
-<td>Yes</td>
-<td>All AI steps</td>
+<td><code>--once</code> / <code>--once --dry-run</code></td>
+<td>weekly run (send) / preview only</td>
 </tr>
 <tr>
-<td><code>OPENAI_MODEL</code>, <code>OPENAI_JUDGE_MODEL</code></td>
-<td>No</td>
-<td>Reader and judge models (defaults <code>gpt-4o-mini</code>, <code>gpt-4o</code>)</td>
+<td><code>--refresh</code></td>
+<td>daily refresh (save new GCCs, no email)</td>
 </tr>
 <tr>
-<td><code>SERPER_API_KEY</code></td>
-<td>Yes for Google</td>
-<td>Google search</td>
+<td><code>--backfill 2026 [--dry-run] [--no-google]</code></td>
+<td>load a year</td>
 </tr>
 <tr>
-<td><code>GROQ_API_KEY</code>, <code>GROQ_MODEL</code></td>
-<td>Optional</td>
-<td>X.com search</td>
+<td><code>--fix-sectors</code></td>
+<td>re-classify "Other" sectors</td>
 </tr>
 <tr>
-<td><code>GCCINDEX_USERNAME</code>, <code>GCCINDEX_PASSWORD</code></td>
-<td>Optional</td>
-<td>GCC Index events</td>
+<td><code>--dashboard [--port 8000]</code></td>
+<td>start the dashboard</td>
 </tr>
 <tr>
-<td><code>GMAIL_USER</code>, <code>GMAIL_APP_PASSWORD</code>, <code>TO_EMAIL</code></td>
-<td>Yes to send</td>
-<td>Sender, 16-letter app password, recipient</td>
+<td><code>--schedule --daily 07:00 --cron "mon 09:00"</code></td>
+<td>run both jobs in one process</td>
 </tr>
 <tr>
-<td><code>LANGSMITH_TRACING</code>, <code>LANGSMITH_API_KEY</code>, <code>LANGSMITH_PROJECT</code></td>
-<td>Optional</td>
-<td>Tracing</td>
+<td><code>--schedule [--interval-min 5]</code></td>
+<td>test loop</td>
 </tr>
 <tr>
-<td><code>LOOKBACK_DAYS</code></td>
-<td>No (7)</td>
-<td>Window length</td>
+<td><code>--resend-last [--dry-run]</code></td>
+<td>rebuild/resend the last report</td>
 </tr>
 <tr>
-<td><code>SEND_EMPTY_REPORT</code></td>
-<td>No (true)</td>
-<td>Email even when nothing is new</td>
+<td><code>--why "A, B"</code></td>
+<td>explain what the last run did with these companies</td>
 </tr>
 <tr>
-<td><code>INCLUDE_ANNOUNCED</code></td>
-<td>No (true)</td>
-<td>Include announced (not only opened) items</td>
+<td><code>--only serper,et_gcc</code></td>
+<td>limit sources (with <code>--once</code>/<code>--refresh</code>)</td>
 </tr>
 <tr>
-<td><code>DISABLED_SOURCES</code></td>
-<td>No</td>
-<td>e.g. <code>groq_x,gccindex</code></td>
+<td><code>--list</code>, <code>--stats</code>, <code>--export-csv</code>, <code>--year</code>, <code>--sector</code>, <code>--city</code>, <code>--type</code></td>
+<td>query the database</td>
+</tr>
+<tr>
+<td><code>--graph</code></td>
+<td>print the flowchart as Mermaid</td>
+</tr>
+<tr>
+<td><code>--reset-db</code></td>
+<td>wipe the database (testing only)</td>
 </tr>
 </tbody>
 </table>
-<h3 id="commands">Commands</h3>
-<pre><code class="language-bash">python main.py --once --dry-run                    # full run, no email, writes data/preview.html
-python main.py --once                              # real run: sends the email, records items
-python main.py --once --dry-run --only et_gcc      # test one source
-python main.py --resend-last [--dry-run]           # re-send the last report with the current layout
-python main.py --schedule                          # every 5 minutes (testing)
-python main.py --schedule --cron &quot;mon 09:00&quot;       # weekly
-python main.py --list --year 2026                  # what has been reported
-python main.py --list --sector BFSI --city Hyderabad --type expansion
-python main.py --stats --year 2026                 # counts by type, sector, city, month
-python main.py --export-csv gcc_2026.csv --year 2026
-python main.py --graph                             # print the flowchart as Mermaid
-python main.py --reset-db                          # wipe history (testing only)
-python -m pytest -q                                # run the tests
-</code></pre>
-<hr />
-<h2 id="10-tests">10. Tests</h2>
-<p>59 tests, all offline: the internet, the AI and email are replaced by fakes, so they run in about 8 seconds and cost nothing.
-<code>conftest.py</code> gives every test its own temporary database and <strong>dummy</strong> keys (never your real ones).</p>
+<h3 id="tests-108-all-offline-no-ai-email-pdf-rendering-or-traces">Tests (108, all offline — no AI, email, PDF rendering or traces)</h3>
 <table>
 <thead>
 <tr>
 <th>File</th>
-<th>Tests</th>
-<th>What it proves</th>
+<th>Proves</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><code>test_dedupe.py</code></td>
-<td>21</td>
-<td>Name/city/URL normalisation; merging; date rules; stale detection; official-domain rules; page verification; company-post detection; fallback ordering; date parsing</td>
+<td>normalisation, merging, rules, page verification, source-link choice, date parsing</td>
 </tr>
 <tr>
-<td><code>test_db.py</code></td>
-<td>7</td>
-<td>Duplicate detection; "new GCC unique forever, expansion can recur"; unique-constraint safety; empty-week rows; list/stats/CSV; reset; round trip of a saved report</td>
-</tr>
-<tr>
-<td><code>test_sites_parsing.py</code></td>
-<td>7</td>
-<td>ET listing and JSON-LD parsing; GCC Pulse parsing; date helpers; GCC Index feed parsing (exact dates, window, no AI needed)</td>
-</tr>
-<tr>
-<td><code>test_report.py</code></td>
-<td>5</td>
-<td>Email content and subject; empty week; HTML escaping; the mobile card layout; short site names</td>
-</tr>
-<tr>
-<td><code>test_email.py</code></td>
-<td>5</td>
-<td>Message structure and inline image; success path; one retry then failure; missing settings</td>
+<td><code>test_coverage.py</code></td>
+<td>every past coverage gap stays fixed (time filter, ET section, per-company split, late coverage, competitors, generic names)</td>
 </tr>
 <tr>
 <td><code>test_graph_routing.py</code></td>
-<td>11</td>
-<td>End to end with fakes: approve and send; repeat next week is skipped; retry then empty-week email; empty emails off; all sources failed sends nothing; one source failing still reports; failed send does not save items; dry run writes no database rows; fallbacks to news/company post; no link means rejection</td>
+<td>end-to-end flows incl. daily → weekly hand-off, failed sends, dry runs</td>
 </tr>
 <tr>
-<td><code>test_tracing.py</code></td>
-<td>3</td>
-<td>Secrets stripped from traces; trace status messages; spans stay attached in threads</td>
+<td><code>test_dashboard.py</code></td>
+<td>every API filter, KPIs, downloads, analyse, email, header protection</td>
+</tr>
+<tr>
+<td><code>test_backfill.py</code></td>
+<td>month windows, dated hits, one-new-GCC rule, catalogue storage, sector clean-up</td>
+</tr>
+<tr>
+<td><code>test_db.py</code>, <code>test_email.py</code>, <code>test_report.py</code>, <code>test_insights.py</code>, <code>test_sites_parsing.py</code>, <code>test_tracing.py</code></td>
+<td>storage, MIME/attachments, report layout and names, catalogue guard, site parsers, trace safety</td>
 </tr>
 </tbody>
 </table>
+<p>Run: <code>.venv\Scripts\python -m pytest -q</code>.</p>
 <hr />
-<h2 id="11-limits-troubleshooting-and-next-steps">11. Limits, troubleshooting and next steps</h2>
-<h3 id="known-limits-honest-list">Known limits (honest list)</h3>
+<h2 id="12-limits-troubleshooting-and-next-steps">12. Limits, troubleshooting and next steps</h2>
+<h3 id="known-limits">Known limits</h3>
 <ul>
-<li><strong>Moneycontrol</strong> is blocked by bot protection; it is covered only through Google's <code>site:</code> search.</li>
-<li><strong>X.com via Groq</strong> has found nothing so far.</li>
-<li><strong>The AI can still be wrong.</strong> Checks reduce this, but a weak news link can get through. Idea: require two independent sources
-  when there is no press release or company post.</li>
-<li><strong>Dates:</strong> if an article gives no event date, the article's publish date is used. Usually right, occasionally a day or two off.</li>
-<li><strong>News sites</strong> occasionally block our page fetch; those links are accepted only on strong URL/snippet hints.</li>
-<li><strong>ET GCC</strong> is read from its first listing page only (25 candidate articles).</li>
-<li><strong>GCC Index</strong> access depends on your account and its terms of use; the page structure can change.</li>
-<li><strong>Nothing is scheduled yet.</strong> The pieces exist (<code>--schedule --cron</code>), but it does not run by itself until you host it (PC task scheduler or a cloud VM).</li>
-<li><strong>No failure alerts yet:</strong> a failed run is only visible in <code>data/run.log</code>.</li>
-<li><strong>One machine:</strong> SQLite lives on one computer. A cloud host needs a persistent disk (or a switch to a server database).</li>
-<li><strong>Cost:</strong> each run uses OpenAI, Serper and (if enabled) Groq calls. Weekly is cheap; a 5-minute test loop adds up.</li>
+<li>Search and AI results vary a little run to run; the overlapping windows give every event several chances.</li>
+<li>Moneycontrol is covered only through Google; X via Groq rarely finds anything.</li>
+<li>About half of the catalogue has a public link; the rest exists only in GCC Index (subscription data).</li>
+<li>Dates without an explicit event date use the news date — usually right, sometimes a few days off.</li>
+<li>Named people in "next step" come from news coverage — verify before outreach.</li>
+<li>The dashboard is for one PC (127.0.0.1); sharing it on a network needs a login first.</li>
 </ul>
 <h3 id="troubleshooting">Troubleshooting</h3>
 <table>
 <thead>
 <tr>
 <th>You see</th>
-<th>Meaning and fix</th>
+<th>Fix</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>SMTPAuthenticationError 535 ... Username and Password not accepted</code></td>
-<td>Not a real app password. It must be exactly 16 lowercase letters from https://myaccount.google.com/apppasswords (needs 2-Step Verification).</td>
+<td><code>SMTPAuthenticationError 535</code></td>
+<td><code>GMAIL_APP_PASSWORD</code> must be the 16-letter app password, not your Gmail password</td>
 </tr>
 <tr>
 <td><code>outcome=search_failed</code></td>
-<td>Every source failed (keys, network, blocked). Nothing was emailed on purpose. Read <code>data/run.log</code> for each source's status.</td>
+<td>every source failed (keys, network); nothing was sent on purpose — see <code>data/run.log</code></td>
 </tr>
 <tr>
-<td><code>skipped: SERPER_API_KEY not set</code> (or GROQ, GCC Index)</td>
-<td>The key is empty in <code>.env</code>. That source is skipped, others continue.</td>
-</tr>
-<tr>
-<td>Every candidate rejected as "no event date"</td>
-<td>The source gave no date. Check the source in <code>--only</code> mode.</td>
-</tr>
-<tr>
-<td><code>no source link found</code></td>
-<td>The item had no link at all anywhere. Rare.</td>
-</tr>
-<tr>
-<td><code>stale: this GCC was already announced on ...</code></td>
-<td>Working as intended: an old event in a fresh article.</td>
-</tr>
-<tr>
-<td><code>blocked: Access Denied</code> on Moneycontrol</td>
-<td>Expected.</td>
+<td><code>skipped: ... not set</code></td>
+<td>that key is empty in <code>.env</code>; other sources continue</td>
 </tr>
 <tr>
 <td>GCC Index <code>login failed</code></td>
-<td>Wrong username/password in <code>.env</code>; delete <code>data/gccindex_state.json</code> and retry.</td>
+<td>check the credentials; delete <code>data/gccindex_state.json</code> and retry</td>
 </tr>
 <tr>
-<td>You get a "no new GCC activity" email every 5 minutes</td>
-<td>You are on the 5-minute test loop and everything is already reported. Set <code>SEND_EMPTY_REPORT=false</code> or switch to <code>--cron</code>.</td>
+<td>A GCC you expected is missing</td>
+<td><code>python main.py --why "Company"</code> — not found = coverage gap; rejected = shows the reason</td>
 </tr>
 <tr>
-<td>Email layout looks old</td>
-<td>Run <code>python main.py --resend-last</code> to rebuild it from the saved data.</td>
+<td>Dashboard won't start / port busy</td>
+<td><code>python main.py --dashboard --port 8080</code></td>
 </tr>
 <tr>
-<td><code>playwright</code> errors about a missing browser</td>
-<td>Run <code>python -m playwright install chromium</code>.</td>
+<td>Dashboard shows nothing</td>
+<td>the database is empty — run <code>--backfill 2026</code> or copy <code>data\</code> from the other machine</td>
+</tr>
+<tr>
+<td>Playwright / Chromium errors</td>
+<td><code>python -m playwright install chromium</code> (Linux: <code>--with-deps</code>)</td>
+</tr>
+<tr>
+<td><code>OpenAIRateLimitError</code></td>
+<td>quota or rate limit on the OpenAI account; retry later or raise the limit</td>
+</tr>
+<tr>
+<td>Email looks old after a layout change</td>
+<td><code>python main.py --resend-last</code></td>
 </tr>
 </tbody>
 </table>
-<h3 id="suggested-next-steps">Suggested next steps</h3>
+<h3 id="next-steps">Next steps</h3>
 <ol>
-<li><strong>Host it</strong> so it runs weekly without your PC (a free always-on VM, or Windows Task Scheduler as a first step).</li>
-<li><strong>Failure alerts:</strong> email or message yourself on <code>search_failed</code> / <code>send_failed</code>, plus a heartbeat check.</li>
-<li><strong>Timezone and locking:</strong> use India time explicitly, and prevent two runs overlapping.</li>
-<li><strong>Extra proof for weak items</strong> (two independent sources when there is no press release or company post).</li>
-<li><strong>Decide on X/Groq</strong> after a few weeks of results.</li>
-<li><strong>Pin exact package versions</strong> and add CI that runs the tests on every push.</li>
+<li>Host the jobs on the chosen machine (Part 4.7) and copy <code>.env</code> + <code>data\</code>.</li>
+<li>Add failure alerts (email/Slack on <code>search_failed</code> or <code>send_failed</code>) and a heartbeat check.</li>
+<li>Pin exact package versions and run the tests in CI on every push.</li>
+<li>If the dashboard should be shared, add a login and serve it on the network.</li>
 </ol>
 <hr />
-<p><em>End of walkthrough. For the diagrams-only view see <code>docs/ARCHITECTURE.md</code>; for setup see <code>README.md</code>.</em></p></main>
+<p><em>For the diagram-only view see <code>docs/ARCHITECTURE.md</code>; for setup in brief see <code>README.md</code>.</em></p></main>
 <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
-<script>mermaid.initialize({startOnLoad:true, theme: window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'default', flowchart:{useMaxWidth:true}});</script>
+<script>mermaid.initialize({startOnLoad:true, theme: matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'default', flowchart:{useMaxWidth:true}});</script>
 </body></html>
