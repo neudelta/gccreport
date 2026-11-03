@@ -51,6 +51,25 @@ def safe_run(settings, dry_run: bool, mode: str = "email") -> None:
         log.exception("pipeline run (%s) crashed", mode)
 
 
+def port_problem(port: int) -> str:
+    """Empty if the port is free; otherwise a plain explanation of what to do."""
+    import socket
+    import urllib.request
+
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        if sock.connect_ex(("127.0.0.1", port)) != 0:
+            return ""
+    try:
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/api/facets", timeout=3) as resp:
+            if resp.status == 200:
+                return (f"The dashboard is already running: open http://127.0.0.1:{port}\n"
+                        "(close the other window that runs it first if you want to restart it).")
+    except Exception:
+        pass
+    return (f"Port {port} is used by another program. Start the dashboard on another port, e.g.\n"
+            f"  python main.py --dashboard --port {port + 80}")
+
+
 def explain(names: str) -> int:
     """For each name: found by which source, and approved / rejected (why), or not found at all."""
     from gcc_agents.models import normalize_company
@@ -202,6 +221,10 @@ def main() -> int:
         return 0
 
     if args.dashboard:
+        busy = port_problem(args.port)
+        if busy:
+            print(busy)
+            return 1
         import uvicorn
         print(f"LTM GCC dashboard: http://127.0.0.1:{args.port}  (Ctrl+C to stop)")
         uvicorn.run("dashboard.app:app", host="127.0.0.1", port=args.port, log_level="warning")

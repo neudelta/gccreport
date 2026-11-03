@@ -113,3 +113,16 @@ def test_email_validation_and_failure(client, monkeypatch):
     r = client.post("/api/email", headers=H, json={"recipients": "a@ltm.com"})
     assert r.status_code == 502 and "smtp down" in r.json()["detail"]
     assert client.get("/api/recipients").json()["recipients"] != "a@ltm.com"   # not saved on failure
+
+
+def test_port_check_explains_a_busy_port():
+    import socket
+
+    import main
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as srv:
+        srv.bind(("127.0.0.1", 0))
+        srv.listen(1)
+        port = srv.getsockname()[1]
+        msg = main.port_problem(port)                 # something that is not the dashboard holds the port
+        assert f"Port {port} is used by another program" in msg and f"--port {port + 80}" in msg
+    assert main.port_problem(port) == ""              # free again
