@@ -1,0 +1,13 @@
+# Never put secrets, local data or the dev environment into an image.
+.env
+.venv/
+data/
+dist/
+.git/
+.claude/
+.pytest_cache/
+**/__pycache__/
+*.pyc
+docs/
+tests/
+scripts/

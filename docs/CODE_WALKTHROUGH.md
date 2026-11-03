@@ -462,6 +462,22 @@ The page (`static/index.html`) is plain HTML/CSS/JavaScript with hand-drawn SVG 
 day is still covered). New GCCs are saved at once (`origin = daily`) and show up in the dashboard. The next weekly
 email includes them and marks them as reported.
 
+### 8.5 Free demo hosting (Hugging Face)
+
+The same dashboard can run as a **private Hugging Face Space** for demos. Code involved:
+
+| Piece | What it does |
+|---|---|
+| `dashboard/access.py` | `DASHBOARD_PASSWORD` sign-in (signed 12-hour session cookie, brake after 5 wrong tries); demo mode: email domain allow-list, daily cap on AI analyses |
+| `dashboard/app.py` | sign-in page and `/logout`; every page and API call needs a session when a password is set; `/api/config` tells the page about demo limits |
+| `main.py --dashboard --host 0.0.0.0` | serves beyond this PC — refused unless `DASHBOARD_PASSWORD` is set |
+| `db.export_demo` / `--export-demo-db` | cleaned database copy: no saved recipients or local paths; GCC Index-only rows left out by default |
+| `Dockerfile` | Python + Chromium image on port 7860 as user 1000 (what Hugging Face expects) |
+| `scripts/build_hf_space.py` | builds `dist/hf-space` and, with `--space you/name`, uploads it as a private Space |
+
+Steps are in the README ("Free demo on Hugging Face"). Locally nothing changes: with no password and no demo
+mode the dashboard stays on 127.0.0.1 exactly as before.
+
 ---
 
 ## 9. The rules the system follows

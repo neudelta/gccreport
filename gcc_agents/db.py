@@ -285,6 +285,32 @@ def export_csv(conn: sqlite3.Connection, path: Path, year: Optional[int] = None)
     return len(rows)
 
 
+def export_demo(path: Path, include_gccindex_only: bool = False) -> dict:
+    """A copy of the database that is safe to ship in a hosted demo.
+
+    Removes saved settings (e.g. your default email recipients), local file paths of sent reports and the
+    per-run source logs. By default also leaves out GCCs found *only* through your GCC Index subscription; pass
+    include_gccindex_only=True if its terms allow sharing them."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if path.exists():
+        path.unlink()
+    with connect() as src:
+        out = sqlite3.connect(path)
+        src.backup(out)
+        out.close()
+    with connect(path) as conn:
+        conn.execute("DELETE FROM app_settings")
+        conn.execute("UPDATE reports SET html_path = NULL, source_status = NULL")
+        dropped = 0
+        if not include_gccindex_only:
+            dropped = conn.execute("DELETE FROM gcc WHERE discovery_sources = '[\"gccindex\"]'").rowcount
+        kept = conn.execute("SELECT COUNT(*) FROM gcc").fetchone()[0]
+    vac = sqlite3.connect(path)
+    vac.execute("VACUUM")
+    vac.close()
+    return {"kept": kept, "dropped_gccindex_only": dropped}
+
+
 def reset(conn: sqlite3.Connection) -> None:
     conn.execute("DELETE FROM gcc")
     conn.execute("DELETE FROM reports")

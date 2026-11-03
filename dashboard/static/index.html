@@ -24,6 +24,10 @@
   .eyebrow { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--coral); font-weight: 700; }
   .titles h1 { margin: 2px 0 0; font-size: 20px; font-weight: 600; }
   .parent { font-size: 11px; color: #C9CDD3; text-align: right; line-height: 1.35; }
+  .demo { display: none; background: var(--coral); color: #fff; font-size: 11px; font-weight: 700; letter-spacing: 1px;
+          text-transform: uppercase; padding: 3px 9px; border-radius: 999px; }
+  .signout { display: none; color: #C9CDD3; font-size: 12px; text-decoration: underline; }
+  .signout:hover { color: #fff; }
   .hero { height: 96px; background: var(--ink) url("/hero.png") center 70% / cover no-repeat; }
 
   main { max-width: 1360px; margin: -40px auto 0; padding: 0 24px 60px; position: relative; }
@@ -142,6 +146,8 @@
   <div class="bar">
     <div class="logo">LTM</div>
     <div class="titles"><div class="eyebrow">GCC Origin &middot; Market Radar</div><h1>India GCC Intelligence Dashboard</h1></div>
+    <span class="demo" id="demo-badge">Demo</span>
+    <a class="signout" id="signout" href="/logout">Sign out</a>
     <div class="parent">A Larsen &amp; Toubro<br>Group Company</div>
   </div>
   <div class="hero" role="presentation"></div>
@@ -450,8 +456,23 @@ async function busy(btn, label, fn) {
 function pendingAnalysis() { return state.items.filter((i) => !i.fit).length; }
 function analysisNote(n) {
   if (!n) return "All GCCs in this filter already have their LTM analysis.";
+  const left = state.cfg && state.cfg.analyses_left;
+  if (left !== null && left !== undefined && n > left) {
+    return `${n} GCCs still need LTM analysis; this demo allows ${left} more today, so the rest will show without it.`;
+  }
   const mins = Math.max(1, Math.ceil((n * 1.6) / 60));
   return `${n} GCC${n === 1 ? "" : "s"} still need LTM analysis; this runs first (about ${mins} min) and is saved for next time.`;
+}
+function emailNote() {
+  const c = state.cfg || {};
+  if (c.email_enabled === false) return "Email is not set up on this deployment (no Gmail settings).";
+  if (c.email_domains && c.email_domains.length) return `In this demo, reports can only go to ${c.email_domains.map((d) => "@" + d).join(", ")} addresses.`;
+  return "";
+}
+async function loadConfig() {
+  try { state.cfg = await (await api("/api/config")).json(); } catch { state.cfg = {}; }
+  if (state.cfg.demo) $("#demo-badge").style.display = "inline-block";
+  if (state.cfg.login) $("#signout").style.display = "inline";
 }
 function confirmBig() {
   const n = pendingAnalysis();
@@ -473,7 +494,8 @@ $("#b-csv").onclick = () => busy($("#b-csv"), "Exporting…", async () => {
 $("#b-email").onclick = async () => {
   $("#m-msg").textContent = ""; $("#m-msg").className = "msg";
   $("#mail-scope").textContent = `${state.items.length} GCCs in the current filter`;
-  $("#m-analyse").textContent = analysisNote(pendingAnalysis());
+  await loadConfig();
+  $("#m-analyse").textContent = [analysisNote(pendingAnalysis()), emailNote()].filter(Boolean).join(" ");
   try { $("#m-to").value = (await (await api("/api/recipients")).json()).recipients || ""; } catch {}
   open($("#mail")); $("#m-to").focus();
 };
@@ -506,7 +528,7 @@ document.querySelectorAll(".chip[data-range]").forEach((c) => c.onclick = () => 
 });
 $("#reset").onclick = () => { for (const k of F) $("#f-" + k).value = ""; document.querySelectorAll(".chip").forEach((c) => c.classList.remove("active")); load(); };
 
-loadFacets().then(load).catch((e) => toast("Could not start: " + e.message, 8000));
+loadConfig().then(loadFacets).then(load).catch((e) => toast("Could not start: " + e.message, 8000));
 </script>
 </body>
 </html>

@@ -113,6 +113,43 @@ and city per year (GCC Index's date preferred), and sectors left as "Other" are 
 (`python main.py --fix-sectors` runs that alone). Backfill stops at the end of the last emailed week, so newer
 GCCs still go out in the next weekly email. Rows are tagged `origin=backfill`.
 
+## Free demo on Hugging Face
+
+A private Hugging Face Space (free CPU hardware) runs the dashboard from a Docker image with a **snapshot** of the
+database, behind a password.
+
+1. Create a free account at huggingface.co and a **write** token (Settings → Access Tokens).
+2. Build and upload (you run this; the token stays on your PC):
+   ```bash
+   .venv\Scripts\python -m pip install huggingface_hub
+   set HF_TOKEN=hf_your_write_token
+   .venv\Scripts\python scripts\build_hf_space.py --space YOUR_HF_NAME/ltm-gcc-radar
+   ```
+   This creates a **private** Space and uploads the app code, `Dockerfile` and a cleaned demo copy of
+   `data/gcc.db` (no saved recipients or local paths; GCCs found only via GCC Index are left out unless you add
+   `--include-gccindex-only` after checking GCC Index's terms). `.env` and the GCC Index session are never uploaded.
+   Without `--space` it only builds `dist/hf-space` so you can inspect it.
+3. In the Space: **Settings → Variables and secrets**
+   - secret `DASHBOARD_PASSWORD` — **required**; the sign-in password you share
+   - variable `DEMO_MODE` = `true`, `DEMO_DAILY_ANALYSES` = e.g. `30`, `DEMO_EMAIL_DOMAINS` = e.g. `ltm.com`
+   - secret `OPENAI_API_KEY` (+ `SERPER_API_KEY`) to allow "Analyse for LTM"
+   - secrets `GMAIL_USER`, `GMAIL_APP_PASSWORD` to allow emailing reports (optional)
+4. The Space builds (about 5 minutes) and shows the sign-in page. To share it, add people to the Space
+   (private Spaces need a Hugging Face account) or make it public (the password still protects it).
+
+**Demo behaviour:** sign-in for everything; a "Demo" badge; emails only to the allowed domains; a daily cap on
+new AI analyses so a shared link cannot run up your OpenAI bill. The demo does not run the daily refresh; to
+update it, rebuild and upload again. Free Spaces sleep after a period without visitors and restart with the
+uploaded snapshot (analyses made in the demo are not kept).
+
+Test the same image locally (needs Docker):
+```bash
+cd dist\hf-space
+docker build -t ltm-gcc-radar-demo .
+docker run --rm -p 7860:7860 -e DASHBOARD_PASSWORD=choose-one -e DEMO_MODE=true ltm-gcc-radar-demo
+```
+then open http://127.0.0.1:7860.
+
 ## Query the database (whole year, any time)
 
 ```bash

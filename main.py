@@ -9,7 +9,8 @@
   python main.py --backfill 2026 [--dry-run] [--no-google]
   python main.py --refresh                 (daily: add new GCCs to the database, no email)
   python main.py --schedule --daily 07:00 --cron "mon 09:00"
-  python main.py --dashboard [--port 8000]
+  python main.py --dashboard [--port 8000] [--host 0.0.0.0  (needs DASHBOARD_PASSWORD)]
+  python main.py --export-demo-db demo.db [--include-gccindex-only]
   python main.py --dedupe-db [--dry-run]
   python main.py --why "TIAA, Havells"     (what happened to these companies in the last run)
   python main.py --reset-db
@@ -170,6 +171,12 @@ def main() -> int:
     ap.add_argument("--no-google", action="store_true", help="with --backfill: GCC Index only")
     ap.add_argument("--dashboard", action="store_true", help="run the LTM dashboard at http://127.0.0.1:8000")
     ap.add_argument("--port", type=int, default=8000, help="dashboard port (default 8000)")
+    ap.add_argument("--host", default="127.0.0.1",
+                    help="dashboard address (default 127.0.0.1 = this PC only; 0.0.0.0 needs DASHBOARD_PASSWORD)")
+    ap.add_argument("--export-demo-db", metavar="PATH",
+                    help="write a cleaned copy of the database for a hosted demo (see README)")
+    ap.add_argument("--include-gccindex-only", action="store_true",
+                    help="with --export-demo-db: keep GCCs found only in GCC Index (check its terms first)")
     ap.add_argument("--why", metavar="NAMES",
                     help='explain what the last run did with these companies, e.g. --why "TIAA, Havells"')
     ap.add_argument("--graph", action="store_true", help="print the LangGraph structure as Mermaid and exit")
@@ -231,14 +238,28 @@ def main() -> int:
               + ("dry run: see data/backfill_preview.csv" if args.dry_run else f"added {res.added} to the database"))
         return 0
 
+    if args.export_demo_db:
+        stats = db.export_demo(Path(args.export_demo_db), include_gccindex_only=args.include_gccindex_only)
+        print(f"demo database written to {args.export_demo_db}: {stats['kept']} GCCs"
+              f" ({stats['dropped_gccindex_only']} GCC Index-only rows left out, saved settings removed)")
+        return 0
+
     if args.dashboard:
+        if args.host not in ("127.0.0.1", "localhost", "::1"):
+            from dashboard import access
+            if not access.login_required():
+                print("Refusing to open the dashboard beyond this PC without a login. "
+                      "Set DASHBOARD_PASSWORD first (see README, 'Free demo on Hugging Face').")
+                return 1
         busy = port_problem(args.port)
         if busy:
             print(busy)
             return 1
         import uvicorn
-        print(f"LTM GCC dashboard: http://127.0.0.1:{args.port}  (Ctrl+C to stop)")
-        uvicorn.run("dashboard.app:app", host="127.0.0.1", port=args.port, log_level="warning")
+        shown = "127.0.0.1" if args.host in ("0.0.0.0", "::") else args.host
+        print(f"LTM GCC dashboard: http://{shown}:{args.port}  (Ctrl+C to stop)")
+        uvicorn.run("dashboard.app:app", host=args.host, port=args.port, log_level="warning",
+                    proxy_headers=True, forwarded_allow_ips="*")
         return 0
 
     if args.resend_last:

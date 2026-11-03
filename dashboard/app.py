@@ -19,6 +19,7 @@ cross-site request without a CORS preflight (which this app never allows), so an
 dashboard send email or spend API credits.
 """
 import csv
+import dataclasses
 import io
 import logging
 from collections import Counter
@@ -26,11 +27,15 @@ from datetime import date
 from pathlib import Path
 from typing import Optional
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Query
-from fastapi.responses import FileResponse, Response, StreamingResponse
+from urllib.parse import parse_qs
+
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response, StreamingResponse
 from pydantic import BaseModel
 
 from gcc_agents import config, db, email_agent, insights_agent, report_agent, visuals
+
+from . import access
 
 log = logging.getLogger("gcc")
 STATIC = Path(__file__).resolve().parent / "static"
@@ -38,6 +43,64 @@ ANALYSE_WORKERS = 8  # GCCs analysed in parallel when a report needs them
 RECIPIENTS_KEY = "dashboard_recipients"
 
 app = FastAPI(title="LTM GCC Radar", docs_url=None, redoc_url=None)
+OPEN_PATHS = {"/login", "/hero.png", "/favicon.ico"}
+
+
+@app.middleware("http")
+async def require_login(request: Request, call_next):
+    """With DASHBOARD_PASSWORD set, everything except the login page needs a valid session cookie."""
+    if access.login_required() and request.url.path not in OPEN_PATHS \
+            and not access.valid_session(request.cookies.get(access.COOKIE)):
+        if request.url.path.startswith("/api/"):
+            return JSONResponse({"detail": "sign in required"}, status_code=401)
+        return RedirectResponse("/login", status_code=303)
+    response = await call_next(request)
+    response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("Referrer-Policy", "no-referrer")
+    return response
+
+
+def _is_https(request: Request) -> bool:
+    return request.url.scheme == "https" or request.headers.get("x-forwarded-proto", "").startswith("https")
+
+
+@app.get("/login", response_class=HTMLResponse)
+def login_page() -> HTMLResponse:
+    if not access.login_required():
+        return RedirectResponse("/", status_code=303)
+    return HTMLResponse(access.LOGIN_PAGE.format(error=""))
+
+
+@app.post("/login")
+async def login(request: Request):
+    form = parse_qs((await request.body()).decode("utf-8", "replace"))
+    ip = request.client.host if request.client else "?"
+    if not access.check_password((form.get("password") or [""])[0], ip):
+        return HTMLResponse(access.LOGIN_PAGE.format(error='<div class="err">Wrong password.</div>'), status_code=401)
+    resp = RedirectResponse("/", status_code=303)
+    resp.set_cookie(access.COOKIE, access.make_session(), max_age=access.SESSION_SECONDS, httponly=True,
+                    samesite="lax", secure=_is_https(request), path="/")
+    return resp
+
+
+@app.get("/logout")
+def logout() -> RedirectResponse:
+    resp = RedirectResponse("/login" if access.login_required() else "/", status_code=303)
+    resp.delete_cookie(access.COOKIE, path="/")
+    return resp
+
+
+@app.get("/api/config")
+def app_config() -> dict:
+    """What the page needs to know about this deployment (demo badge, limits, sign-out link)."""
+    with db.connect() as conn:
+        left = access.analyses_left(conn)
+    s = config.get_settings()
+    return {"demo": access.demo_mode(), "login": access.login_required(), "analyses_left": left,
+            "email_enabled": not email_agent.missing_config(
+                dataclasses.replace(s, to_email=s.to_email or "x@example.com")),
+            "email_domains": access.email_domains() if access.demo_mode() else []}
 _hero_png: Optional[bytes] = None
 
 
@@ -129,10 +192,16 @@ def _build_report(f: Filters):
     settings = config.get_settings()
     # Every GCC in the filter gets its LTM analysis (each GCC is analysed once; the result is saved).
     todo = [i for i in items if i.insight is None]
+    with db.connect() as conn:
+        left = access.analyses_left(conn)
+    if left is not None:  # demo mode: only as many new analyses as today's budget allows
+        todo = sorted(todo, key=lambda i: (i.event_type != "new_gcc",
+                                           -(i.event_date.toordinal() if i.event_date else 0)))[:left]
     if todo:
         done = insights_agent.enrich(settings, todo, max_workers=ANALYSE_WORKERS)
         with db.connect() as conn:
             db.save_insights(conn, done)
+            access.use_analyses(conn, sum(1 for i in done if i.insight))
         by_key = {i.event_key: i for i in done}
         items = [by_key.get(i.event_key, i) for i in items]
     start, end = _period(f, rows)
@@ -209,6 +278,9 @@ def analyse(gcc_id: int) -> dict:
         r = conn.execute("SELECT * FROM gcc WHERE id = ?", (gcc_id,)).fetchone()
     if r is None:
         raise HTTPException(404, "not found")
+    with db.connect() as conn:
+        if access.analyses_left(conn) == 0:
+            raise HTTPException(429, "Today's demo limit for LTM analyses is used up. Try again tomorrow.")
     try:
         insight = insights_agent.analyse(config.get_settings(), db.row_to_gcc(r))
     except Exception as exc:
@@ -216,6 +288,7 @@ def analyse(gcc_id: int) -> dict:
         raise HTTPException(502, f"analysis failed: {type(exc).__name__}")
     with db.connect() as conn:
         db.update_insight(conn, gcc_id, insight)
+        access.use_analyses(conn, 1)
         r = conn.execute("SELECT * FROM gcc WHERE id = ?", (gcc_id,)).fetchone()
     return _to_json(r)
 
@@ -270,6 +343,9 @@ def send_email(req: EmailRequest) -> dict:
         raise HTTPException(400, "add at least one recipient")
     if len(recipients) > 25:
         raise HTTPException(400, "at most 25 recipients")
+    problem = access.check_recipients(recipients)
+    if problem:
+        raise HTTPException(403, problem)
     settings, rep = _build_report(req.filters.clean())
     sent, detail = email_agent.send(settings, rep, recipients=", ".join(recipients))
     if not sent:

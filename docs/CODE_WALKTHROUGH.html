@@ -670,6 +670,44 @@ trigger them. All text from the web is escaped before display, and only <code>ht
 <p><code>python main.py --refresh</code> = the normal pipeline in <strong>collect</strong> mode with a 3-day window (overlapping, so a missed
 day is still covered). New GCCs are saved at once (<code>origin = daily</code>) and show up in the dashboard. The next weekly
 email includes them and marks them as reported.</p>
+<h3 id="85-free-demo-hosting-hugging-face">8.5 Free demo hosting (Hugging Face)</h3>
+<p>The same dashboard can run as a <strong>private Hugging Face Space</strong> for demos. Code involved:</p>
+<table>
+<thead>
+<tr>
+<th>Piece</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>dashboard/access.py</code></td>
+<td><code>DASHBOARD_PASSWORD</code> sign-in (signed 12-hour session cookie, brake after 5 wrong tries); demo mode: email domain allow-list, daily cap on AI analyses</td>
+</tr>
+<tr>
+<td><code>dashboard/app.py</code></td>
+<td>sign-in page and <code>/logout</code>; every page and API call needs a session when a password is set; <code>/api/config</code> tells the page about demo limits</td>
+</tr>
+<tr>
+<td><code>main.py --dashboard --host 0.0.0.0</code></td>
+<td>serves beyond this PC — refused unless <code>DASHBOARD_PASSWORD</code> is set</td>
+</tr>
+<tr>
+<td><code>db.export_demo</code> / <code>--export-demo-db</code></td>
+<td>cleaned database copy: no saved recipients or local paths; GCC Index-only rows left out by default</td>
+</tr>
+<tr>
+<td><code>Dockerfile</code></td>
+<td>Python + Chromium image on port 7860 as user 1000 (what Hugging Face expects)</td>
+</tr>
+<tr>
+<td><code>scripts/build_hf_space.py</code></td>
+<td>builds <code>dist/hf-space</code> and, with <code>--space you/name</code>, uploads it as a private Space</td>
+</tr>
+</tbody>
+</table>
+<p>Steps are in the README ("Free demo on Hugging Face"). Locally nothing changes: with no password and no demo
+mode the dashboard stays on 127.0.0.1 exactly as before.</p>
 <hr />
 <h2 id="9-the-rules-the-system-follows">9. The rules the system follows</h2>
 <table>
