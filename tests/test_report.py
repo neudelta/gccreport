@@ -20,11 +20,12 @@ def test_report_with_items(settings, monkeypatch):
                  press_release_url="https://b.com/1"),
     ]
     rep = _build(settings, items, dups=2, monkeypatch=monkeypatch)
-    assert "1 new GCC, 1 expansion" in rep.subject
+    assert "1 new GCC · 1 expansion" in rep.subject
     assert rep.chart_png.startswith(PNG) and rep.chart_cid == "sector_pie"
     assert "cid:sector_pie" in rep.html
-    assert "Acme Corp" in rep.html and "Beta Bank" in rep.html and 'href="https://a.com/1"' in rep.html
-    assert "2 item(s) found this week were already reported" in rep.html
+    assert "Acme Corp" in rep.html and "Beta Bank" in rep.html
+    assert 'href="https://a.com/1"' in rep.pdf_html                        # source links live in the briefing
+    assert "2 item(s) seen this period were already in an earlier brief" in rep.html
     for gone in ("Sources checked", "Sources with issues", "best available source", "moneycontrol", "gccindex"):
         assert gone not in rep.html and gone not in rep.text
     assert "Acme Corp" in rep.text
@@ -33,7 +34,7 @@ def test_report_with_items(settings, monkeypatch):
 def test_report_empty_week(settings, monkeypatch):
     rep = _build(settings, [], dups=1, monkeypatch=monkeypatch)
     assert "no new GCC activity" in rep.subject
-    assert rep.chart_png is None and "cid:" not in rep.html
+    assert rep.chart_png is None and "cid:sector_pie" not in rep.html  # the LTM hero is always there
     assert "No new GCC launches or expansions" in rep.html
 
 
@@ -42,21 +43,32 @@ def test_html_is_escaped(settings, monkeypatch):
     assert "<script>alert(1)</script>" not in rep.html
 
 
-def test_mobile_friendly_card_layout(settings, monkeypatch):
-    opened = make_gcc(press_release_url="https://a.com/1", state="Karnataka", sector="Energy")
-    announced = make_gcc(company="Beta", city="Pune", state="", status="announced", press_release_url="https://b.com/1")
-    html = _build(settings, [opened, announced], monkeypatch=monkeypatch).html
-    # No side-by-side data columns that can collide on a phone, and a fluid container.
-    assert "<th" not in html and "table-layout" not in html
-    assert 'name="viewport"' in html and "max-width:720px" in html and "@media only screen and (max-width: 480px)" in html
-    assert 'width="680"' not in html and 'width="100%"' in html
-    # Each item is a labelled card: Location (city, state + sector under it), Date, Source.
-    for label in (">Location<", ">Date<", ">Source<"):
-        assert html.count(label) == 2, label
-    assert "Bengaluru, Karnataka" in html and "Energy" in html
-    assert ">Opened<" not in html and ">Announced<" in html               # only the non-default status is shown
-    assert 'src="cid:sector_pie"' in html and "max-width:360px" in html   # chart shrinks with the screen
-    assert "already reported" not in html
+def test_ltm_email_overview_table_and_briefing(settings, monkeypatch):
+    from conftest import FAKE_INSIGHT
+    hi = make_gcc(company="Woodside Energy", sector="Energy", insight=FAKE_INSIGHT)
+    lo = make_gcc(company="Beta", city="Pune", state="", status="announced", event_type="expansion",
+                  press_release_url="https://b.com/1", insight=FAKE_INSIGHT.model_copy(update={"fit": "Low"}))
+    rep = _build(settings, [lo, hi], monkeypatch=monkeypatch)
+    html = rep.html
+    # LTM theme and a phone-safe overview table (4 short columns, sector hidden on small screens)
+    assert ">LTM<" in html and "GCC Origin" in html and "#F2553D" in html
+    assert html.count("<th ") == 4 and 'class="hide-sm"' in html and "max-width:720px" in html
+    assert "@media only screen and (max-width: 520px)" in html
+    assert html.index("Woodside Energy") < html.index(">Beta<")           # high fit is listed first
+    assert "Where GCC Origin can engage first" in html and "Build-Operate-Transform-Transfer" in html
+    assert "cid:ltm_hero" in html and "cid:sector_pie" in html and "Full briefing attached" in html
+    assert "announced" in html                                            # announced items are flagged
+    # detailed briefing: business area, products, India-centre mandate and the LTM play
+    assert rep.pdf == b"%PDF-1.7 fake" and rep.pdf_name.endswith(".pdf")
+    for text in ("Business area", "Products &amp; services", "The India centre", "How LTM wins",
+                 "Oil and gas producer", "LNG", "Next step", "LTM GCC Origin at a glance"):
+        assert text in rep.pdf_html, text
+    assert set(rep.images) == {"ltm_hero"} and rep.images["ltm_hero"].startswith(PNG)
+
+
+def test_no_pdf_for_an_empty_week(settings, monkeypatch):
+    rep = _build(settings, [], monkeypatch=monkeypatch)
+    assert rep.pdf is None and "Full briefing attached" not in rep.html
 
 
 def test_source_host_is_short_and_only_for_news_and_posts():

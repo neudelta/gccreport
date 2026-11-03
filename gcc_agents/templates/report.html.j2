@@ -1,94 +1,151 @@
+{%- set CORAL = "#F2553D" -%}{%- set CORAL_T = "#C2391F" -%}{%- set INK = "#0B0B0C" -%}
+{%- macro fit_pill(fit) -%}
+{%- if fit == 'High' -%}<span style="display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700;color:#FFFFFF;background:{{ CORAL }};white-space:nowrap;">High</span>
+{%- elif fit == 'Medium' -%}<span style="display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700;color:#FFFFFF;background:#1F2329;white-space:nowrap;">Medium</span>
+{%- elif fit == 'Low' -%}<span style="display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700;color:#3D434C;background:#E5E7EB;white-space:nowrap;">Low</span>
+{%- else -%}<span style="font-size:12px;color:#8C939D;">&ndash;</span>{%- endif -%}
+{%- endmacro -%}
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="x-apple-disable-message-reformatting">
+<meta name="color-scheme" content="light">
 <title>{{ subject }}</title>
 <style>
-  /* Progressive enhancement only: the inline styles below already work without this. */
-  @media only screen and (max-width: 480px) {
-    .wrap { padding: 8px 4px !important; }
-    .px { padding-left: 12px !important; padding-right: 12px !important; }
-    .kpi { padding-right: 16px !important; }
+  @media only screen and (max-width: 520px) {
+    .wrap { padding: 0 !important; }
+    .px { padding-left: 16px !important; padding-right: 16px !important; }
+    .h1 { font-size: 26px !important; }
+    .kpi td { padding-right: 14px !important; }
+    .hide-sm { display: none !important; }
+    .ov td, .ov th { padding-left: 6px !important; padding-right: 6px !important; }
   }
 </style>
 </head>
-<body style="margin:0;padding:0;background:#f3f5f8;font-family:Segoe UI,Helvetica,Arial,sans-serif;color:#1c2733;-webkit-text-size-adjust:100%;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f5f8;"><tr><td align="center" class="wrap" style="padding:16px 8px;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;max-width:720px;background:#ffffff;border-radius:8px;overflow:hidden;">
+<body style="margin:0;padding:0;background:#E9EBEE;font-family:'Segoe UI',Helvetica,Arial,sans-serif;color:{{ INK }};-webkit-text-size-adjust:100%;">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;">{{ preheader }}</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#E9EBEE;"><tr><td align="center" class="wrap" style="padding:20px 8px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;max-width:720px;background:#FFFFFF;">
 
-  <tr><td class="px" style="background:#12355b;padding:20px 20px;">
-    <div style="color:#9fb8d6;font-size:12px;letter-spacing:1px;text-transform:uppercase;">GCC India Weekly</div>
-    <div style="color:#ffffff;font-size:22px;font-weight:600;line-height:1.25;margin-top:4px;">
-      {% if items %}New GCCs &amp; expansions in India{% else %}No new GCC activity this week{% endif %}
-    </div>
-    <div style="color:#c9d8ea;font-size:13px;margin-top:6px;">{{ window_start }} &ndash; {{ window_end }}</div>
-  </td></tr>
-
-  <tr><td class="px" style="padding:20px 20px 8px 20px;">
-    <p style="margin:0 0 14px 0;font-size:15px;line-height:1.55;">{{ summary }}</p>
-    {% if items %}
-    <table role="presentation" cellpadding="0" cellspacing="0"><tr>
-      <td class="kpi" style="padding-right:26px;"><div style="font-size:26px;font-weight:600;color:#12355b;">{{ new_count }}</div><div style="font-size:12px;color:#5b6b7c;">New GCCs</div></td>
-      <td class="kpi" style="padding-right:26px;"><div style="font-size:26px;font-weight:600;color:#12355b;">{{ expansion_count }}</div><div style="font-size:12px;color:#5b6b7c;">Expansions</div></td>
-      <td><div style="font-size:26px;font-weight:600;color:#12355b;">{{ city_count }}</div><div style="font-size:12px;color:#5b6b7c;">Cities</div></td>
+  {# ---------- brand bar ---------- #}
+  <tr><td class="px" bgcolor="{{ INK }}" style="background:{{ INK }};padding:18px 28px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+      <td valign="middle" style="font-size:30px;font-weight:800;letter-spacing:1px;color:{{ CORAL }};line-height:1;">LTM</td>
+      <td valign="middle" align="right" style="font-size:11px;line-height:1.35;color:#C9CDD3;">A Larsen &amp; Toubro<br>Group Company</td>
     </tr></table>
-    {% endif %}
   </td></tr>
 
-  {% for it in items %}
-  {# One card per item. Stacked blocks (no side-by-side columns) so nothing can overlap on a phone. #}
-  <tr><td class="px" style="padding:10px 20px 2px 20px;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e3e8ee;border-radius:8px;">
-      <tr><td style="padding:14px 14px 6px 14px;">
+  {# ---------- hero ---------- #}
+  <tr><td class="px" bgcolor="{{ INK }}" style="background:{{ INK }};padding:14px 28px 6px 28px;">
+    <div style="font-size:12px;letter-spacing:2px;text-transform:uppercase;color:{{ CORAL }};font-weight:700;">GCC Origin &middot; Market Radar</div>
+    <div class="h1" style="font-size:32px;line-height:1.15;font-weight:700;color:#FFFFFF;margin-top:8px;">India GCC Opportunity Brief</div>
+    <div style="font-size:14px;color:#C9CDD3;margin-top:8px;">{{ window_start }} &ndash; {{ window_end }} &nbsp;|&nbsp; Prepared for LTM leadership</div>
+  </td></tr>
+  <tr><td bgcolor="{{ INK }}" style="background:{{ INK }};padding:0;line-height:0;font-size:0;">
+    <img src="{{ hero_src }}" width="720" alt="" style="width:100%;max-width:720px;height:auto;display:block;border:0;">
+  </td></tr>
+
+  {% if items %}
+  {# ---------- KPIs ---------- #}
+  <tr><td class="px" style="padding:24px 28px 4px 28px;">
+    <table role="presentation" class="kpi" cellpadding="0" cellspacing="0"><tr>
+      <td style="padding-right:28px;"><div style="font-size:34px;font-weight:800;color:{{ CORAL_T }};line-height:1;">{{ new_count }}</div><div style="font-size:12px;color:#5B6470;margin-top:4px;">New GCCs</div></td>
+      <td style="padding-right:28px;"><div style="font-size:34px;font-weight:800;color:{{ INK }};line-height:1;">{{ expansion_count }}</div><div style="font-size:12px;color:#5B6470;margin-top:4px;">Expansions</div></td>
+      <td style="padding-right:28px;"><div style="font-size:34px;font-weight:800;color:{{ INK }};line-height:1;">{{ city_count }}</div><div style="font-size:12px;color:#5B6470;margin-top:4px;">Cities</div></td>
+      <td><div style="font-size:34px;font-weight:800;color:{{ CORAL_T }};line-height:1;">{{ high_count }}</div><div style="font-size:12px;color:#5B6470;margin-top:4px;">High-fit for LTM</div></td>
+    </tr></table>
+  </td></tr>
+  {% endif %}
+
+  {# ---------- executive summary ---------- #}
+  <tr><td class="px" style="padding:20px 28px 4px 28px;">
+    <div style="border-left:4px solid {{ CORAL }};padding:2px 0 2px 14px;">
+      <div style="font-size:12px;letter-spacing:1.5px;text-transform:uppercase;color:#5B6470;font-weight:700;">Executive summary</div>
+      <p style="margin:6px 0 0 0;font-size:15px;line-height:1.6;color:{{ INK }};">{{ summary }}</p>
+    </div>
+  </td></tr>
+
+  {% if items %}
+  {# ---------- overview table ---------- #}
+  <tr><td class="px" style="padding:24px 28px 6px 28px;">
+    <div style="font-size:18px;font-weight:700;color:{{ INK }};">At a glance &mdash; last two weeks</div>
+  </td></tr>
+  <tr><td class="px" style="padding:6px 28px 0 28px;">
+    <table role="presentation" class="ov" width="100%" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;font-size:13px;line-height:1.4;">
+      <tr bgcolor="{{ INK }}" style="background:{{ INK }};color:#FFFFFF;text-align:left;">
+        <th align="left" style="padding:10px 10px;font-weight:600;">Company</th>
+        <th align="left" style="padding:10px 10px;font-weight:600;">City</th>
+        <th align="left" class="hide-sm" style="padding:10px 10px;font-weight:600;">Sector</th>
+        <th align="left" style="padding:10px 10px;font-weight:600;">LTM fit</th>
+      </tr>
+      {% for it in items %}
+      <tr style="border-bottom:1px solid #E5E7EB;{% if loop.index is even %}background:#F7F8FA;{% endif %}">
+        <td valign="top" style="padding:11px 10px;word-break:break-word;">
+          <div style="font-weight:700;font-size:14px;color:{{ INK }};">{{ it.company }}</div>
+          <div style="font-size:12px;color:#5B6470;margin-top:2px;">
+            <span style="color:{% if it.event_type == 'new_gcc' %}{{ CORAL_T }}{% else %}{{ INK }}{% endif %};font-weight:700;">{% if it.event_type == 'new_gcc' %}New GCC{% else %}Expansion{% endif %}</span>
+            &middot; {{ it.event_date.strftime('%d %b') if it.event_date else '' }}{% if it.status != 'opened' %} &middot; announced{% endif %}
+          </div>
+        </td>
+        <td valign="top" style="padding:11px 10px;">{{ it.city }}</td>
+        <td valign="top" class="hide-sm" style="padding:11px 10px;color:#3D434C;">{{ it.sector }}</td>
+        <td valign="top" style="padding:11px 10px;">{{ fit_pill(it.insight.fit if it.insight else None) }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+  </td></tr>
+
+  {# ---------- top opportunities ---------- #}
+  {% if top %}
+  <tr><td class="px" style="padding:28px 28px 4px 28px;">
+    <div style="font-size:18px;font-weight:700;color:{{ INK }};">Where GCC Origin can engage first</div>
+  </td></tr>
+  {% for it in top %}
+  <tr><td class="px" style="padding:10px 28px 0 28px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#F7F8FA" style="background:#F7F8FA;border-left:4px solid {{ CORAL }};">
+      <tr><td style="padding:14px 16px;">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
-          <td valign="top" style="font-size:17px;font-weight:600;line-height:1.3;color:#1c2733;word-break:break-word;">{{ it.company }}</td>
-          <td valign="top" align="right" style="padding-left:10px;white-space:nowrap;">
-            <span style="display:inline-block;padding:3px 10px;border-radius:10px;font-size:12px;color:#ffffff;background:{% if it.event_type == 'new_gcc' %}#1b7f5c{% else %}#b26a00{% endif %};">{% if it.event_type == 'new_gcc' %}New GCC{% else %}Expansion{% endif %}</span>
-            {% if it.status != 'opened' %}<div style="font-size:11px;color:#5b6b7c;margin-top:3px;">{{ it.status|capitalize }}</div>{% endif %}
-          </td>
+          <td valign="top" style="font-size:16px;font-weight:700;color:{{ INK }};">{{ it.company }} <span style="font-weight:400;color:#5B6470;font-size:13px;">&middot; {{ it.city }}</span></td>
+          <td valign="top" align="right" style="padding-left:8px;">{{ fit_pill(it.insight.fit) }}</td>
         </tr></table>
-      </td></tr>
-      {% if it.summary %}
-      <tr><td style="padding:0 14px 10px 14px;font-size:14px;line-height:1.5;color:#3a4a5a;">{{ it.summary }}</td></tr>
-      {% endif %}
-      <tr><td style="padding:0 14px 14px 14px;">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;line-height:1.45;">
-          <tr>
-            <td width="76" valign="top" style="padding:4px 0;color:#5b6b7c;">Location</td>
-            <td valign="top" style="padding:4px 0;">{{ it.city }}{% if it.state %}, {{ it.state }}{% endif %}<div style="color:#5b6b7c;font-size:13px;">{{ it.sector }}</div></td>
-          </tr>
-          <tr>
-            <td width="76" valign="top" style="padding:4px 0;color:#5b6b7c;">Date</td>
-            <td valign="top" style="padding:4px 0;">{{ it.event_date }}</td>
-          </tr>
-          <tr>
-            <td width="76" valign="top" style="padding:4px 0;color:#5b6b7c;">Source</td>
-            <td valign="top" style="padding:4px 0;word-break:break-word;"><a href="{{ it.source_url }}" style="color:#0b5cad;">{{ it.source_label }}</a>{% if it.source_host %}<span style="color:#5b6b7c;font-size:13px;"> &middot; {{ it.source_host }}</span>{% endif %}</td>
-          </tr>
-        </table>
+        <div style="font-size:14px;line-height:1.5;color:#1F2329;margin-top:6px;">{{ it.insight.fit_rationale }}</div>
+        <div style="font-size:13px;line-height:1.5;color:#5B6470;margin-top:6px;"><strong style="color:{{ INK }};">Lead with:</strong> {{ it.insight.services|join(', ') }} &middot; <strong style="color:{{ INK }};">Model:</strong> {{ it.insight.engagement_model }}</div>
       </td></tr>
     </table>
   </td></tr>
   {% endfor %}
+  {% endif %}
 
-  {% if items and chart_cid %}
-  <tr><td class="px" align="center" style="padding:22px 20px 8px 20px;">
-    <div style="font-size:15px;font-weight:600;margin-bottom:8px;">Sector mix</div>
-    <img src="cid:{{ chart_cid }}" alt="Sector distribution pie chart" width="360" style="width:100%;max-width:360px;height:auto;display:block;margin:0 auto;">
+  {# ---------- chart ---------- #}
+  {% if chart_src %}
+  <tr><td class="px" align="center" style="padding:28px 28px 4px 28px;">
+    <div style="font-size:15px;font-weight:700;color:{{ INK }};margin-bottom:6px;">Sector mix</div>
+    <img src="{{ chart_src }}" alt="Sector mix of GCCs in this period" width="340" style="width:100%;max-width:340px;height:auto;display:block;margin:0 auto;border:0;">
+  </td></tr>
+  {% endif %}
+  {% endif %}
+
+  {# ---------- briefing CTA ---------- #}
+  {% if has_pdf %}
+  <tr><td class="px" style="padding:24px 28px 8px 28px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="{{ INK }}" style="background:{{ INK }};">
+      <tr><td style="padding:18px 20px;">
+        <div style="font-size:15px;font-weight:700;color:#FFFFFF;">Full briefing attached</div>
+        <div style="font-size:13px;line-height:1.5;color:#C9CDD3;margin-top:4px;">Account profiles with business area, products, the India centre&rsquo;s mandate, and the recommended GCC Origin play for each company (PDF).</div>
+      </td></tr>
+    </table>
   </td></tr>
   {% endif %}
 
-  {% if already_reported_count %}
-  <tr><td class="px" style="padding:20px 20px 22px 20px;border-top:1px solid #e3e8ee;">
-    <div style="font-size:12px;color:#5b6b7c;line-height:1.6;">
-      {{ already_reported_count }} item(s) found this week were already reported earlier and were excluded.
+  {# ---------- footer ---------- #}
+  <tr><td class="px" style="padding:20px 28px 26px 28px;">
+    <div style="font-size:11px;line-height:1.6;color:#8C939D;">
+      {% if already_reported_count %}{{ already_reported_count }} item(s) seen this period were already in an earlier brief and are not repeated.<br>{% endif %}
+      Internal &middot; Prepared for LTM leadership &middot; AI-assisted from public sources; verify before client outreach.
     </div>
   </td></tr>
-  {% else %}
-  <tr><td style="padding:12px;font-size:1px;line-height:1px;">&nbsp;</td></tr>
-  {% endif %}
 </table>
 </td></tr></table>
 </body></html>

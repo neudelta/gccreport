@@ -2,6 +2,7 @@
 import smtplib
 import ssl
 import time
+from email.mime.application import MIMEApplication
 from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -12,19 +13,32 @@ from .tracing import trace_tool
 
 
 def build_message(settings: Settings, report: Report) -> MIMEMultipart:
-    msg = MIMEMultipart("related")
-    msg["Subject"] = report.subject
-    msg["From"] = settings.gmail_user
-    msg["To"] = settings.to_email
+    """multipart/related (HTML + inline images), wrapped in multipart/mixed when the PDF briefing is attached."""
+    related = MIMEMultipart("related")
     alt = MIMEMultipart("alternative")
     alt.attach(MIMEText(report.text, "plain", "utf-8"))
     alt.attach(MIMEText(report.html, "html", "utf-8"))
-    msg.attach(alt)
+    related.attach(alt)
+    inline = dict(report.images)
     if report.chart_png and report.chart_cid:
-        img = MIMEImage(report.chart_png, _subtype="png")
-        img.add_header("Content-ID", f"<{report.chart_cid}>")
-        img.add_header("Content-Disposition", "inline", filename="sector_mix.png")
-        msg.attach(img)
+        inline[report.chart_cid] = report.chart_png
+    for cid, png in inline.items():
+        img = MIMEImage(png, _subtype="png")
+        img.add_header("Content-ID", f"<{cid}>")
+        img.add_header("Content-Disposition", "inline", filename=f"{cid}.png")
+        related.attach(img)
+
+    if report.pdf:
+        msg = MIMEMultipart("mixed")
+        msg.attach(related)
+        part = MIMEApplication(report.pdf, _subtype="pdf")
+        part.add_header("Content-Disposition", "attachment", filename=report.pdf_name)
+        msg.attach(part)
+    else:
+        msg = related
+    msg["Subject"] = report.subject
+    msg["From"] = settings.gmail_user
+    msg["To"] = settings.to_email
     return msg
 
 

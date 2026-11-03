@@ -199,3 +199,14 @@ def test_stale_new_gcc_is_rejected_when_an_older_announcement_exists(settings):
         approved, rejected, _ = ev.run(settings, conn, [older, late_article], TODAY)
     assert not approved
     assert any("stale" in r["reason"] for r in rejected)
+
+
+def test_same_company_prefix_match_and_merge():
+    from gcc_agents.evaluate_agent import merge_candidates, same_company
+    assert same_company("rsm", "rsm us integrated services")
+    assert not same_company("bank of america", "bank of india") and not same_company("bank", "bank of india")
+    assert not same_company("rsm", "rsmart")
+    a = make_gcc(company="RSM US Integrated Services", city="Hyderabad", discovery_sources=["serper"])
+    b = make_gcc(company="RSM", city="Hyderabad", event_type="expansion", discovery_sources=["gccindex"])
+    c = make_gcc(company="RSM", city="Bengaluru", discovery_sources=["gccindex"])
+    assert len(merge_candidates([a, b, c])) == 2      # same city merges; another city stays separate

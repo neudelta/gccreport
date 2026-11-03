@@ -42,3 +42,17 @@ def test_send_reports_missing_config(settings):
     settings.to_email = ""
     ok, detail = email_agent.send(settings, _report())
     assert not ok and "TO_EMAIL" in detail
+
+
+def test_message_with_pdf_and_hero_image(settings):
+    png = b"\x89PNG\r\n\x1a\nxx"
+    rep = Report(subject="S", html="<img src='cid:ltm_hero'><img src='cid:sector_pie'>", text="t",
+                 chart_png=png, chart_cid="sector_pie", images={"ltm_hero": png},
+                 pdf=b"%PDF-1.7 x", pdf_name="LTM_India_GCC_Briefing_2026-11-02.pdf")
+    msg = email_agent.build_message(settings, rep)
+    types = [p.get_content_type() for p in msg.walk()]
+    assert types[:3] == ["multipart/mixed", "multipart/related", "multipart/alternative"]
+    cids = {p["Content-ID"] for p in msg.walk() if p.get_content_type() == "image/png"}
+    assert cids == {"<ltm_hero>", "<sector_pie>"}
+    pdf = [p for p in msg.walk() if p.get_content_type() == "application/pdf"][0]
+    assert pdf.get_filename() == "LTM_India_GCC_Briefing_2026-11-02.pdf" and msg["To"] == "me@example.com"

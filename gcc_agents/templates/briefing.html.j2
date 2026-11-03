@@ -1,0 +1,238 @@
+{%- set CORAL = "#F2553D" -%}{%- set CORAL_T = "#C2391F" -%}{%- set INK = "#0B0B0C" -%}
+{%- macro fit_pill(fit) -%}
+<span class="pill pill-{{ (fit or 'na')|lower }}">{{ fit or 'n/a' }}{% if fit %} fit{% endif %}</span>
+{%- endmacro -%}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>{{ title }}</title>
+<style>
+  @page { size: A4; margin: {% if part == 'cover' %}0{% else %}16mm 15mm 18mm 15mm{% endif %}; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Helvetica, Arial, sans-serif; color: {{ INK }}; font-size: 10.5pt; line-height: 1.5;
+         -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+
+  /* ---------- cover ---------- */
+  .cover { position: relative; z-index: 5; width: 210mm; height: 297mm; background: {{ INK }}; color: #fff;
+           {% if part == 'all' %}page-break-after: always;{% endif %} overflow: hidden; }
+  .cover .bar { display: flex; justify-content: space-between; align-items: center; padding: 18mm 18mm 0 18mm; }
+  .cover .logo { font-size: 34pt; font-weight: 800; letter-spacing: 2px; color: {{ CORAL }}; line-height: 1; }
+  .cover .parent { font-size: 9pt; color: #C9CDD3; text-align: right; line-height: 1.35; }
+  .cover .titles { padding: 46mm 18mm 0 18mm; }
+  .cover .eyebrow { font-size: 10pt; letter-spacing: 3px; text-transform: uppercase; color: {{ CORAL }}; font-weight: 700; }
+  .cover h1 { font-size: 40pt; line-height: 1.08; margin: 6mm 0 0 0; font-weight: 700; }
+  .cover .period { font-size: 14pt; color: #E6E8EB; margin-top: 8mm; }
+  .cover .for { font-size: 10.5pt; color: #9AA1AB; margin-top: 3mm; }
+  .cover .wave { position: absolute; left: 0; right: 0; bottom: 22mm; width: 100%; }
+  .cover .stamp { position: absolute; left: 18mm; bottom: 10mm; font-size: 8.5pt; color: #9AA1AB; letter-spacing: 1px; }
+
+  /* ---------- sections ---------- */
+  h2 { font-size: 18pt; margin: 0 0 1mm 0; line-height: 1.2; }
+  .eyebrow2 { font-size: 8.5pt; letter-spacing: 2.5px; text-transform: uppercase; color: {{ CORAL_T }}; font-weight: 700; }
+  .rule { height: 3px; width: 22mm; background: {{ CORAL }}; margin: 3mm 0 5mm 0; }
+  .section { page-break-before: always; }
+  .flow { margin-top: 10mm; }
+  .flow > .eyebrow2, .flow > h2, .flow > .rule { page-break-after: avoid; }
+  .lead { font-size: 12pt; line-height: 1.6; border-left: 4px solid {{ CORAL }}; padding: 1mm 0 1mm 5mm; margin: 0 0 6mm 0; }
+
+  .kpis { display: flex; gap: 4mm; margin: 0 0 6mm 0; }
+  .kpi { flex: 1; background: {{ INK }}; color: #fff; padding: 5mm 5mm 4mm 5mm; }
+  .kpi .n { font-size: 26pt; font-weight: 800; line-height: 1; }
+  .kpi .n.c { color: {{ CORAL }}; }
+  .kpi .l { font-size: 8.5pt; color: #C9CDD3; margin-top: 2mm; }
+
+  table.ov { width: 100%; border-collapse: collapse; font-size: 9pt; }
+  table.ov th { background: {{ INK }}; color: #fff; text-align: left; padding: 2.4mm 2.4mm; font-weight: 600; }
+  table.ov td { padding: 2.4mm 2.4mm; border-bottom: 1px solid #E5E7EB; vertical-align: top; }
+  table.ov tr:nth-child(even) td { background: #F7F8FA; }
+  table.ov .co { font-weight: 700; }
+  table.ov thead { display: table-header-group; }
+  table.ov tr { page-break-inside: avoid; }
+  .legend { font-size: 7.8pt; color: #5B6470; margin-top: 2mm; }
+  .legend b { color: {{ INK }}; }
+  .type-new { color: {{ CORAL_T }}; font-weight: 700; }
+  .type-exp { color: {{ INK }}; font-weight: 700; }
+
+  .charts { display: flex; gap: 6mm; margin-top: 7mm; page-break-inside: avoid; }
+  .chart { flex: 1; border: 1px solid #E5E7EB; padding: 4mm; text-align: center; }
+  .chart h4 { margin: 0 0 2mm 0; font-size: 10pt; text-align: left; }
+  .chart img { max-width: 100%; max-height: 78mm; }
+
+  .pill { display: inline-block; padding: .6mm 2.6mm; border-radius: 99px; font-size: 8pt; font-weight: 700; white-space: nowrap; }
+  .pill-high { background: {{ CORAL }}; color: #fff; }
+  .pill-medium { background: #1F2329; color: #fff; }
+  .pill-low, .pill-na { background: #E5E7EB; color: #3D434C; }
+  .badge { display: inline-block; padding: .6mm 2.6mm; border-radius: 99px; font-size: 8pt; font-weight: 700; color: #fff; }
+  .badge.new { background: {{ CORAL_T }}; } .badge.exp { background: #3D434C; }
+
+  /* ---------- account profiles ---------- */
+  .acct { page-break-inside: avoid; margin: 0 0 8mm 0; border: 1px solid #E5E7EB; }
+  .acct .head { background: {{ INK }}; color: #fff; padding: 4.5mm 5mm; display: flex; justify-content: space-between; align-items: flex-start; gap: 4mm; }
+  .acct .head .nm { font-size: 15pt; font-weight: 700; line-height: 1.2; }
+  .acct .head .meta { font-size: 8.8pt; color: #C9CDD3; margin-top: 1.2mm; }
+  .acct .head .tags { text-align: right; white-space: nowrap; }
+  .acct .head .tags .pill { margin-top: 1.5mm; }
+  .acct .body { display: flex; gap: 6mm; padding: 5mm; }
+  .acct .col { flex: 1; min-width: 0; }
+  .acct h5 { margin: 0 0 1mm 0; font-size: 8pt; letter-spacing: 1.5px; text-transform: uppercase; color: #5B6470; }
+  .acct p { margin: 0 0 3.5mm 0; }
+  .chips { margin: 0 0 3.5mm 0; }
+  .chip { display: inline-block; border: 1px solid #D9DDE3; padding: .5mm 2.4mm; border-radius: 99px; font-size: 8.5pt; margin: 0 1.2mm 1.4mm 0; }
+  .src a { color: {{ CORAL_T }}; word-break: break-all; font-size: 8.5pt; }
+  .opp { background: #F7F8FA; border-top: 3px solid {{ CORAL }}; padding: 4.5mm 5mm 4mm 5mm; }
+  .opp .t { font-size: 11pt; font-weight: 700; margin-bottom: 1.5mm; }
+  .opp .t span { color: {{ CORAL_T }}; }
+  .opp .grid { display: flex; gap: 6mm; }
+  .opp .grid > div { flex: 1; min-width: 0; }
+  .chip.svc { border-color: {{ CORAL }}; color: {{ CORAL_T }}; font-weight: 600; }
+  .opp ul { margin: 0 0 3mm 0; padding-left: 4.5mm; }
+  .opp li { margin-bottom: 1mm; }
+  .next { background: {{ INK }}; color: #fff; padding: 2.6mm 3.5mm; font-size: 9.5pt; }
+  .next b { color: {{ CORAL }}; }
+  .muted { color: #8C939D; }
+
+  /* ---------- reference page ---------- */
+  table.svc { width: 100%; border-collapse: collapse; font-size: 9.5pt; margin-top: 2mm; }
+  table.svc td { padding: 2.6mm 2.4mm; border-bottom: 1px solid #E5E7EB; vertical-align: top; }
+  table.svc td:first-child { width: 42mm; font-weight: 700; color: {{ CORAL_T }}; }
+  .models { margin-top: 4mm; }
+  .note { font-size: 8.5pt; color: #5B6470; margin-top: 8mm; border-top: 1px solid #E5E7EB; padding-top: 3mm; }
+</style>
+</head>
+<body>
+
+{% if part != 'body' %}
+{# ================= COVER ================= #}
+<div class="cover">
+  <div class="bar"><div class="logo">LTM</div><div class="parent">A Larsen &amp; Toubro<br>Group Company</div></div>
+  <div class="titles">
+    <div class="eyebrow">GCC Origin &middot; Market Radar</div>
+    <h1>India GCC<br>Opportunity Briefing</h1>
+    <div class="period">{{ window_start }} &ndash; {{ window_end }}</div>
+    <div class="for">Prepared for LTM leadership &middot; {{ generated }}</div>
+  </div>
+  <img class="wave" src="{{ hero_src }}" alt="">
+  <div class="stamp">INTERNAL &middot; AI-ASSISTED FROM PUBLIC SOURCES</div>
+</div>
+{% endif %}
+{% if part != 'cover' %}
+
+{# ================= EXECUTIVE OVERVIEW ================= #}
+<div>
+  <div class="eyebrow2">Executive overview</div>
+  <h2>What moved in India&rsquo;s GCC market</h2>
+  <div class="rule"></div>
+  <p class="lead">{{ summary }}</p>
+
+  {% if items %}
+  <div class="kpis">
+    <div class="kpi"><div class="n c">{{ new_count }}</div><div class="l">New GCCs</div></div>
+    <div class="kpi"><div class="n">{{ expansion_count }}</div><div class="l">Expansions</div></div>
+    <div class="kpi"><div class="n">{{ city_count }}</div><div class="l">Cities</div></div>
+    <div class="kpi"><div class="n c">{{ high_count }}</div><div class="l">High-fit for GCC Origin</div></div>
+  </div>
+
+  <table class="ov">
+    <thead><tr><th>Company</th><th>Type</th><th>City</th><th>Sector</th><th>Date</th><th>Scale</th><th>LTM fit</th><th>Model*</th></tr></thead>
+    {% for it in items %}
+    <tr>
+      <td class="co">{{ it.company }}</td>
+      <td class="{{ 'type-new' if it.event_type == 'new_gcc' else 'type-exp' }}">{{ 'New GCC' if it.event_type == 'new_gcc' else 'Expansion' }}</td>
+      <td>{{ it.city }}</td>
+      <td>{{ it.sector }}</td>
+      <td style="white-space:nowrap;">{{ it.event_date.strftime('%d %b') if it.event_date else '' }}</td>
+      <td>{{ ((it.insight.scale if it.insight and it.insight.scale else it.headcount) or '–')|truncate(38, True, '…') }}</td>
+      <td>{{ fit_pill(it.insight.fit if it.insight else None) }}</td>
+      <td style="white-space:nowrap;font-weight:600;">{{ model_short.get(it.insight.engagement_model, it.insight.engagement_model) if it.insight else '–' }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  <div class="legend">* Suggested GCC Origin engagement model: {% for k, v in model_short.items() %}<b>{{ v }}</b> {{ k }}{% if not loop.last %} &middot; {% endif %}{% endfor %}</div>
+
+  <div class="charts">
+    {% if pie_src %}<div class="chart"><h4>Sector mix</h4><img src="{{ pie_src }}" alt="Sector mix"></div>{% endif %}
+    {% if city_src %}<div class="chart"><h4>By city</h4><img src="{{ city_src }}" alt="GCCs by city"></div>{% endif %}
+  </div>
+  {% else %}
+  <p>No new GCC launches or expansions in India were found in this period.</p>
+  {% endif %}
+</div>
+
+{# ================= ACCOUNT PROFILES ================= #}
+{% if items %}
+<div class="flow">
+  <div class="eyebrow2">Account profiles</div>
+  <h2>Company detail and the LTM play</h2>
+  <div class="rule"></div>
+  {% for it in items %}
+  {% set ins = it.insight %}
+  <div class="acct">
+    <div class="head">
+      <div>
+        <div class="nm">{{ it.company }}</div>
+        <div class="meta">{{ it.city }}{% if it.state %}, {{ it.state }}{% endif %} &middot; {{ it.sector }} &middot; {{ it.event_date.strftime('%d %b %Y') if it.event_date else '' }}{% if ins and ins.headquarters and ins.headquarters != 'Not disclosed' %} &middot; HQ: {{ ins.headquarters }}{% endif %}</div>
+      </div>
+      <div class="tags">
+        <span class="badge {{ 'new' if it.event_type == 'new_gcc' else 'exp' }}">{{ 'New GCC' if it.event_type == 'new_gcc' else 'Expansion' }}{% if it.status != 'opened' %} &middot; announced{% endif %}</span><br>
+        {{ fit_pill(ins.fit if ins else None) }}
+      </div>
+    </div>
+    <div class="body">
+      <div class="col">
+        <h5>Business area</h5>
+        <p>{{ ins.business_area if ins else it.sector }}</p>
+        <h5>Products &amp; services</h5>
+        <div class="chips">{% if ins and ins.products %}{% for p in ins.products %}<span class="chip">{{ p }}</span>{% endfor %}{% else %}<span class="muted">Not disclosed</span>{% endif %}</div>
+      </div>
+      <div class="col">
+        <h5>The India centre</h5>
+        <p>{{ ins.gcc_mandate if ins else it.summary }}</p>
+        {% if (ins and ins.scale) or it.headcount %}<h5>Scale</h5><p>{{ ins.scale if ins and ins.scale else it.headcount }}</p>{% endif %}
+        <h5>Source</h5>
+        <p class="src"><a href="{{ it.source_url }}">{{ it.source_label }}{% if it.source_host %} &middot; {{ it.source_host }}{% endif %}</a></p>
+      </div>
+    </div>
+    {% if ins %}
+    <div class="opp">
+      <div class="t">How LTM wins <span>&middot; {{ ins.engagement_model }}</span></div>
+      <p style="margin:0 0 3mm 0;">{{ ins.fit_rationale }}</p>
+      <div class="grid">
+        <div>
+          <h5>GCC Origin services to lead with</h5>
+          <div class="chips">{% for s in ins.services %}<span class="chip svc">{{ s }}</span>{% endfor %}</div>
+        </div>
+        <div>
+          <h5>Talking points</h5>
+          <ul>{% for t in ins.talking_points %}<li>{{ t }}</li>{% endfor %}</ul>
+        </div>
+      </div>
+      <div class="next"><b>Next step &rarr;</b> {{ ins.next_step }}</div>
+    </div>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{# ================= REFERENCE ================= #}
+<div class="section">
+  <div class="eyebrow2">Reference</div>
+  <h2>LTM GCC Origin at a glance</h2>
+  <div class="rule"></div>
+  <p>GCC Origin is LTM&rsquo;s independently operated business unit for establishing, operating, scaling and transforming Global Capability Centres in India, AI-native by design and powered by BlueVerse&trade;.</p>
+  <table class="svc">
+    {% for name, desc in services.items() %}<tr><td>{{ name }}</td><td>{{ desc }}</td></tr>{% endfor %}
+  </table>
+  <div class="models"><h5 style="margin:0 0 1.5mm 0;font-size:8pt;letter-spacing:1.5px;text-transform:uppercase;color:#5B6470;">Engagement models</h5>
+    <div class="chips">{% for m in models %}<span class="chip svc">{{ m }}</span>{% endfor %}</div>
+  </div>
+  <div class="note">
+    <b>Method.</b> Events are gathered from Google search, GCC news sites (ET GCC, GCC Pulse, GCC Index) and X, filtered to genuine new GCCs or expansions in India within the period, de-duplicated against earlier briefs, and linked to the best available source. Company profiles and the LTM opportunity view are AI-assisted from those public sources and LTM&rsquo;s GCC Origin catalogue (launch release, 28 Oct 2026). Verify facts before client outreach.
+  </div>
+</div>
+{% endif %}
+</body>
+</html>

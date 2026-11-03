@@ -13,6 +13,9 @@ warnings.filterwarnings("ignore", category=DeprecationWarning, module="langchain
 
 SITE_QUERIES = {
     "et_gcc": "site:gcc.economictimes.indiatimes.com GCC",
+    "et_gcc_wt": "site:gcc.economictimes.indiatimes.com/news/workplace-transformation",
+    "punegcc": "site:punegcc.com",
+    "et_gov": "site:government.economictimes.indiatimes.com GCC",
     "gcc_pulse": "site:gcc-pulse.com GCC",
     "moneycontrol": "site:moneycontrol.com GCC India",
     "gccindex": "site:gccindex.in GCC",
@@ -25,6 +28,15 @@ BASE_QUERIES = [
     "sets up global capability centre in India",
     "captive centre India launch announces",
     "GCC India launch press release",
+    # state approvals / MoUs list several companies at once (e.g. UP cabinet clearing four GCCs)
+    "cabinet approves global capability centre projects",
+    "letter of comfort GCC investment",
+    "GCC MoU signed state government India",
+    # openings that are not called "GCC" in the headline
+    "opens new office in India to house employees technology",
+    "enters India tech hub Bengaluru OR Hyderabad OR Pune OR Chennai",
+    "India technology centre inaugurated multinational",
+    "new India campus engineering centre opens",
 ]
 
 CITIES = [
@@ -37,8 +49,13 @@ def _wrapper(settings: Settings, kind: str):
     from langchain_community.utilities import GoogleSerperAPIWrapper
 
     return GoogleSerperAPIWrapper(
-        serper_api_key=settings.serper_key, gl="in", hl="en", k=10, tbs="qdr:w", type=kind
+        serper_api_key=settings.serper_key, gl="in", hl="en", k=10, tbs=time_filter(settings), type=kind
     )
+
+
+def time_filter(settings: Settings) -> str:
+    """Google 'past N days' filter matching the report window (qdr:w alone silently dropped week 2)."""
+    return f"qdr:d{max(1, settings.lookback_days)}"
 
 
 @trace_tool("google_serper_search")

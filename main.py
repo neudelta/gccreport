@@ -6,6 +6,7 @@
   python main.py --stats --year 2026
   python main.py --export-csv gcc_2026.csv [--year 2026]
   python main.py --resend-last [--dry-run]
+  python main.py --why "TIAA, Havells"     (what happened to these companies in the last run)
   python main.py --reset-db
 """
 import argparse
@@ -46,12 +47,43 @@ def safe_run(settings, dry_run: bool) -> None:
         log.exception("pipeline run crashed")
 
 
+def explain(names: str) -> int:
+    """For each name: found by which source, and approved / rejected (why), or not found at all."""
+    from gcc_agents.models import normalize_company
+
+    path = config.DATA_DIR / "last_run.json"
+    if not path.exists():
+        print("no run recorded yet - run `python main.py --once --dry-run` first")
+        return 1
+    data = json.loads(path.read_text(encoding="utf-8"))
+    print(f"last run window: {data.get('window')}")
+    for name in [n.strip() for n in names.split(",") if n.strip()]:
+        flat = lambda s: "".join(normalize_company(s).split())  # noqa: E731
+        key = flat(name) or name.lower()
+        hits = [c for c in data["candidates"] if key in flat(c["company"])]
+        decisions = [d for d in data["decisions"] if key in flat(d["company"])]
+        if not hits:
+            print(f"- {name}: NOT FOUND by any source (coverage gap: add a source or search phrase)")
+            continue
+        srcs = sorted({s for c in hits for s in c["sources"]})
+        print(f"- {name}: found {len(hits)}x via {', '.join(srcs)}")
+        for d in decisions:
+            print(f"    {d['outcome']}: {d['company']} ({d['city']})" + (f" - {d['reason']}" if d.get("reason") else ""))
+        if not decisions:
+            print("    merged into another item or counted as already reported")
+    return 0
+
+
 def resend_last(settings, dry_run: bool) -> int:
-    """Re-render the last sent report from stored items and send it again. Does not change any stored items."""
-    import base64
+    """Re-render the last sent report from stored items (current layout) and send it again.
+
+    Items that were stored before the LTM insights existed are profiled now, and their insight is saved, so the
+    detailed briefing is complete. No other stored data changes.
+    """
     from datetime import date
 
-    from gcc_agents import email_agent, report_agent
+    from gcc_agents import email_agent, insights_agent, report_agent
+    from gcc_agents.graph import write_previews
 
     with db.connect() as conn:
         loaded = db.load_report(conn)
@@ -59,14 +91,17 @@ def resend_last(settings, dry_run: bool) -> int:
         print("no sent report found in the database")
         return 1
     row, items = loaded
+    missing = [i for i in items if i.insight is None]
+    if missing:
+        items = insights_agent.enrich(settings, items)
+        with db.connect() as conn:
+            db.save_insights(conn, items)
     rep = report_agent.build(settings, items, date.fromisoformat(row["window_start"]),
                              date.fromisoformat(row["window_end"]), 0, {})
     if dry_run:
-        html = rep.html
-        if rep.chart_png:
-            html = html.replace(f"cid:{rep.chart_cid}", "data:image/png;base64," + base64.b64encode(rep.chart_png).decode())
-        (config.DATA_DIR / "preview.html").write_text(html, encoding="utf-8")
-        print(f"wrote data/preview.html ({len(items)} items from report {row['id']})")
+        write_previews(rep)
+        print(f"wrote data/preview.html{' and data/preview_briefing.pdf' if rep.pdf else ''} "
+              f"({len(items)} items from report {row['id']})")
         return 0
     sent, detail = email_agent.send(settings, rep)
     print(f"resend of report {row['id']} ({len(items)} items): {'sent' if sent else 'FAILED - ' + detail}")
@@ -100,6 +135,8 @@ def main() -> int:
     ap.add_argument("--type", choices=["new_gcc", "expansion"])
     ap.add_argument("--resend-last", action="store_true",
                     help="rebuild the last sent report from the database and email it again (uses the current layout)")
+    ap.add_argument("--why", metavar="NAMES",
+                    help='explain what the last run did with these companies, e.g. --why "TIAA, Havells"')
     ap.add_argument("--graph", action="store_true", help="print the LangGraph structure as Mermaid and exit")
     ap.add_argument("--reset-db", action="store_true", help="delete all stored items/reports (testing)")
     args = ap.parse_args()
@@ -134,6 +171,9 @@ def main() -> int:
                     print(f"{r['event_date'] or '-':10}  {r['event_type']:9}  {r['company']} | {r['city']} | "
                           f"{r['sector']} | {r['source_kind']}: {r['source_url']}")
         return 0
+
+    if args.why:
+        return explain(args.why)
 
     if args.resend_last:
         return resend_last(settings, dry_run=args.dry_run)

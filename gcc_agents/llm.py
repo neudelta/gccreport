@@ -22,7 +22,13 @@ Rules:
 - event_date: the date of the opening/announcement (YYYY-MM-DD). Each source item may carry a
   "Published:" date; when the text gives no more specific date for the event, USE that Published date.
   Only leave it empty if neither the text nor a Published date gives one.
+- reported_date: the most recent "Published:" date among the source items about this event (the news date).
 - sector: one of BFSI, Technology, Healthcare/Pharma, Retail/CPG, Manufacturing/Auto, Energy, Other.
+- One item PER COMPANY. Articles about government approvals, cabinet decisions, MoUs, letters of comfort or
+  investment summits often name several companies (e.g. "the cabinet cleared GCC projects of Havells, LG Soft,
+  Ameriprise and MetLife"): output a separate item for EACH named company, with its own city and investment.
+  The company is always the business, never the government, ministry, state agency or summit organiser.
+  Such approvals/MoUs are status "announced"; put the stated investment or jobs in headcount.
 - Return an empty list if nothing qualifies."""
 
 
@@ -60,4 +66,12 @@ def fill_missing_dates(items: list[GCC], default_date: Optional[date]) -> list[G
     """Items the model left undated take the source document's publish date (when we know it)."""
     if default_date is None:
         return items
-    return [i if i.event_date else i.model_copy(update={"event_date": default_date}) for i in items]
+    out = []
+    for i in items:
+        update = {}
+        if not i.event_date:
+            update["event_date"] = default_date
+        if not i.reported_date:
+            update["reported_date"] = default_date
+        out.append(i.model_copy(update=update) if update else i)
+    return out

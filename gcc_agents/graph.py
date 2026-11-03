@@ -4,7 +4,6 @@
                                                   |  ^
                                    (nothing approved, one retry) serper_retry
 """
-import base64
 import logging
 import operator
 from datetime import date, datetime, timedelta
@@ -12,7 +11,8 @@ from typing import Annotated, Optional, TypedDict
 
 from langgraph.graph import END, START, StateGraph
 
-from . import config, db, email_agent, evaluate_agent, report_agent, serper_source, sites_source, x_source
+from . import (config, db, email_agent, evaluate_agent, insights_agent, report_agent, serper_source, sites_source,
+               x_source)
 from .config import Settings
 from .models import GCC
 from .report_agent import Report
@@ -37,6 +37,7 @@ class State(TypedDict, total=False):
     source_status: Annotated[dict, _merge]
     processed: int
     attempts: int
+    enriched: list[GCC]  # approved items with their LTM insight
     report: Optional[Report]
     outcome: str
 
@@ -88,12 +89,18 @@ def build_graph(settings: Settings, dry_run: bool = False, today: Optional[date]
                 log.info("  rejected %s (%s): %s", r["company"], r["city"], r["reason"])
         if outside:  # GCC Index alone returns ~100 older rows, so summarise instead of one line each
             log.info("  %d candidate(s) rejected as outside the %d-day window", len(outside), settings.lookback_days)
+        record_run(new, approved, rejected, state, append=state["processed"] > 0)
         return {"approved": approved, "rejected": rejected, "already_reported_count": dups,
                 "processed": len(state.get("candidates", []))}
 
+    def insights(state: State) -> dict:
+        enriched = insights_agent.enrich(settings, state.get("approved", []))
+        log.info("insights: %d of %d companies profiled for LTM", sum(1 for i in enriched if i.insight), len(enriched))
+        return {"enriched": enriched}
+
     def route_after_evaluate(state: State) -> str:
         if state.get("approved"):
-            return "report"
+            return "insights"
         if not _any_source_ok(state["source_status"]):
             return "search_failed"
         if state["attempts"] < MAX_RETRIES and settings.source_enabled("serper") and settings.serper_key:
@@ -110,7 +117,7 @@ def build_graph(settings: Settings, dry_run: bool = False, today: Optional[date]
         return {"outcome": "search_failed"}
 
     def report(state: State) -> dict:
-        rep = report_agent.build(settings, state.get("approved", []), state["window_start"],
+        rep = report_agent.build(settings, state.get("enriched") or state.get("approved", []), state["window_start"],
                                  state["window_end"], state.get("already_reported_count", 0),
                                  state["source_status"])
         return {"report": rep}
@@ -127,12 +134,9 @@ def build_graph(settings: Settings, dry_run: bool = False, today: Optional[date]
         rep = state["report"]
         if dry_run:
             config.DATA_DIR.mkdir(parents=True, exist_ok=True)
-            html = rep.html
-            if rep.chart_png:  # browsers can't resolve cid: URLs, so inline the chart for the preview only
-                html = html.replace(f"cid:{rep.chart_cid}",
-                                    "data:image/png;base64," + base64.b64encode(rep.chart_png).decode())
-            (config.DATA_DIR / "preview.html").write_text(html, encoding="utf-8")
-            log.info("dry run: wrote data/preview.html (%d items)", len(state.get("approved", [])))
+            write_previews(rep)
+            log.info("dry run: wrote data/preview.html%s (%d items)",
+                     " and data/preview_briefing.pdf" if rep.pdf else "", len(state.get("approved", [])))
             return {"outcome": "dry_run"}
         sent, detail = email_agent.send(settings, rep)
         stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -141,11 +145,14 @@ def build_graph(settings: Settings, dry_run: bool = False, today: Optional[date]
             config.REPORTS_DIR.mkdir(parents=True, exist_ok=True)
             html_path = str(config.REPORTS_DIR / f"report_{stamp}.html")
             (config.REPORTS_DIR / f"report_{stamp}.html").write_text(rep.html, encoding="utf-8")
+            if rep.pdf:
+                (config.REPORTS_DIR / f"briefing_{stamp}.pdf").write_bytes(rep.pdf)
         with db.connect() as conn:
             # Items are committed only after a successful send, so a failed send never "burns" them.
             _, saved = db.save_report(
                 conn, window_start=state["window_start"], window_end=state["window_end"],
-                items=state.get("approved", []) if sent else [], email_status="sent" if sent else "send_failed",
+                items=(state.get("enriched") or state.get("approved", [])) if sent else [],
+                email_status="sent" if sent else "send_failed",
                 sent_at=datetime.now() if sent else None, html_path=html_path,
                 source_status=state["source_status"],
             )
@@ -157,7 +164,8 @@ def build_graph(settings: Settings, dry_run: bool = False, today: Optional[date]
 
     g = StateGraph(State)
     for name, fn in [("prepare", prepare), ("serper", serper_node), ("x", x_node), ("sites", sites_node),
-                     ("serper_retry", serper_retry), ("evaluate", evaluate), ("search_failed", search_failed),
+                     ("serper_retry", serper_retry), ("evaluate", evaluate), ("insights", insights),
+                     ("search_failed", search_failed),
                      ("report", report), ("skip", skip), ("email", email)]:
         g.add_node(name, fn)
     g.add_edge(START, "prepare")
@@ -166,11 +174,44 @@ def build_graph(settings: Settings, dry_run: bool = False, today: Optional[date]
     g.add_edge(["serper", "x", "sites"], "evaluate")
     g.add_edge("serper_retry", "evaluate")
     g.add_conditional_edges("evaluate", route_after_evaluate,
-                            {"report": "report", "search_failed": "search_failed", "serper_retry": "serper_retry"})
+                            {"insights": "insights", "report": "report", "search_failed": "search_failed",
+                             "serper_retry": "serper_retry"})
+    g.add_edge("insights", "report")
     g.add_conditional_edges("report", route_after_report, {"email": "email", "skip": "skip"})
     for terminal in ("search_failed", "skip", "email"):
         g.add_edge(terminal, END)
     return g.compile()
+
+
+def record_run(candidates: list[GCC], approved: list[GCC], rejected: list[dict], state: dict, append: bool) -> None:
+    """data/last_run.json: every candidate seen and what happened to it, so `main.py --why X` can explain a miss."""
+    import json
+
+    path = config.DATA_DIR / "last_run.json"
+    data = {"window": f"{state['window_start']} to {state['window_end']}", "candidates": [], "decisions": []}
+    if append and path.exists():
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except ValueError:
+            pass
+    data["candidates"] += [{"company": c.company, "city": c.city, "date": str(c.event_date or ""),
+                            "sources": c.discovery_sources} for c in candidates]
+    data["decisions"] += [{"company": a.company, "city": a.city, "outcome": "approved"} for a in approved]
+    data["decisions"] += [{"company": r["company"], "city": r["city"], "outcome": "rejected", "reason": r["reason"]}
+                          for r in rejected]
+    data["source_status"] = state.get("source_status", {})
+    config.DATA_DIR.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data, indent=1), encoding="utf-8")
+
+
+def write_previews(rep: Report) -> None:
+    """data/preview.html (the email, viewable in a browser) and, when present, the briefing PDF + HTML."""
+    config.DATA_DIR.mkdir(parents=True, exist_ok=True)
+    (config.DATA_DIR / "preview.html").write_text(report_agent.preview_html(rep), encoding="utf-8")
+    if rep.pdf:
+        (config.DATA_DIR / "preview_briefing.pdf").write_bytes(rep.pdf)
+    if rep.pdf_html:
+        (config.DATA_DIR / "preview_briefing.html").write_text(rep.pdf_html, encoding="utf-8")
 
 
 def run_once(settings: Settings, dry_run: bool = False, today: Optional[date] = None) -> State:

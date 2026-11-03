@@ -6,9 +6,17 @@ from urllib.parse import urlsplit, urlunsplit
 
 from .base import EVENT_TITLE, Doc, in_window, parse_any_date
 
-LISTING = "https://gcc.economictimes.indiatimes.com/news"
+BASE = "https://gcc.economictimes.indiatimes.com"
+LISTING = f"{BASE}/news"
+# /news only shows a handful of recent features. Openings and expansions are filed under workplace-transformation,
+# so read that section's first two pages as well.
+LISTINGS = (
+    f"{BASE}/news/workplace-transformation",
+    f"{BASE}/news/workplace-transformation/2",
+    LISTING,
+)
 ARTICLE_RE = re.compile(r"^/news/[^/]+/[^/]+/\d+$")
-MAX_ARTICLES = 25
+MAX_ARTICLES = 40
 
 
 def parse_listing(anchors: list[tuple[str, str]]) -> list[tuple[str, str]]:
@@ -44,8 +52,14 @@ def parse_article_ld(ld_blobs: list[str]) -> tuple[str, str]:
 
 def fetch(context, settings, today: date) -> list[Doc]:
     page = context.new_page()
-    page.goto(LISTING, wait_until="networkidle", timeout=45000)
-    anchors = page.eval_on_selector_all("a[href]", "els => els.map(e => [e.innerText, e.href])")
+    anchors: list = []
+    for listing in LISTINGS:
+        try:
+            page.goto(listing, wait_until="domcontentloaded", timeout=45000)
+            page.wait_for_timeout(2000)
+            anchors += page.eval_on_selector_all("a[href]", "els => els.map(e => [e.innerText, e.href])")
+        except Exception:
+            continue  # one listing page failing must not stop the others
     docs: list[Doc] = []
     for title, url in parse_listing(anchors):
         try:

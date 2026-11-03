@@ -85,3 +85,14 @@ def test_load_report_round_trips_items():
             original.company, original.city, original.event_type, original.event_date)
         assert got.source_url == original.source_url and got.source_kind == "news"
         assert db.load_report(conn, 999) is None
+
+
+def test_insight_is_stored_loaded_and_refreshed():
+    from conftest import FAKE_INSIGHT
+    with db.connect() as conn:
+        _save(conn, [make_gcc()])
+        _, items = db.load_report(conn)
+        assert items[0].insight is None
+        assert db.save_insights(conn, [items[0].model_copy(update={"insight": FAKE_INSIGHT})]) == 1
+        _, items = db.load_report(conn)
+        assert items[0].insight == FAKE_INSIGHT

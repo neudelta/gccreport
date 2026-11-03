@@ -11,9 +11,9 @@ USER_AGENT = (
 
 # Titles worth a full-article fetch: launches / openings / expansions, not trend or people pieces.
 EVENT_TITLE = re.compile(
-    r"\b(open(s|ed|ing)?|launch(es|ed)?|inaugurat\w*|set(s|ting)? up|expan\w*|establish\w*|unveil\w*|"
-    r"debut\w*|enter(s|ed)?|new (gcc|centre|center|hub|office|facility|campus)|announce\w*|"
-    r"foray|second|third)\b",
+    r"\b(open(s|ed|ing)?|launch(es|ed)?|inaugurat\w*|set(s|ting)?( up)?|expan\w*|establish\w*|unveil\w*|"
+    r"debut\w*|enter(s|ed|ing)?|announce\w*|foray|second|third|gccs?|hub|campus|centre|center|office|facility|"
+    r"tech park|investment|invest(s|ing)?|cabinet|mou|letter of comfort)\b",
     re.I,
 )
 

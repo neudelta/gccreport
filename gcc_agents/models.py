@@ -35,6 +35,7 @@ _CITY_ALIASES = {
     "mysore": "mysuru",
     "new delhi": "delhi",
     "greater noida": "noida",
+    "gautam buddh nagar": "noida", "gautam buddha nagar": "noida", "gb nagar": "noida",
 }
 
 _TRACKING_PARAMS = ("utm_", "fbclid", "gclid", "mc_", "ref", "source")
@@ -79,6 +80,9 @@ class ExtractedItem(BaseModel):
         description="opened = officially opened/inaugurated; announced = officially announced by the company"
     )
     event_date: str = Field(description="Date of the opening/announcement as YYYY-MM-DD; empty string if unknown")
+    reported_date: str = Field(
+        default="", description="Latest 'Published' date (YYYY-MM-DD) of the source items reporting this event"
+    )
     headcount: str = Field(default="", description="Employees/seats mentioned, free text; empty if not stated")
     summary: str = Field(description="One factual sentence, using only facts in the source text")
     press_release_url: str = Field(
@@ -91,6 +95,22 @@ class ExtractionResult(BaseModel):
     items: list[ExtractedItem] = Field(default_factory=list)
 
 
+class LTMInsight(BaseModel):
+    """Account intelligence for one GCC, written from LTM's point of view (filled by the insights agent)."""
+
+    headquarters: str = Field(default="", description="Parent company HQ city/country, or empty if not known")
+    business_area: str = Field(description="What the company does: industry and core business, one sentence")
+    products: list[str] = Field(default_factory=list, description="2-5 key products, brands or service lines")
+    gcc_mandate: str = Field(description="What the India centre will do (functions, tech areas), from the sources")
+    scale: str = Field(default="", description="Headcount / seats / investment stated in the sources, else empty")
+    fit: Literal["High", "Medium", "Low"] = Field(description="Opportunity for LTM GCC Origin")
+    fit_rationale: str = Field(description="Why this fit, 1-2 sentences, grounded in the facts above")
+    services: list[str] = Field(default_factory=list, description="GCC Origin services that apply")
+    engagement_model: str = Field(description="Best-fit GCC Origin engagement model")
+    talking_points: list[str] = Field(default_factory=list, description="2-3 short points for an account conversation")
+    next_step: str = Field(description="One concrete next step for the LTM account team")
+
+
 class GCC(BaseModel):
     company: str
     city: str
@@ -99,6 +119,7 @@ class GCC(BaseModel):
     event_type: Literal["new_gcc", "expansion"]
     status: Literal["opened", "announced"] = "announced"
     event_date: Optional[date] = None
+    reported_date: Optional[date] = None  # when the news appeared (can be later than the event itself)
     headcount: str = ""
     summary: str = ""
     press_release_url: str = ""  # an official-release URL *claimed* by extraction; verified in evaluate
@@ -107,6 +128,7 @@ class GCC(BaseModel):
     # The link shown in the report, chosen in evaluate: press release if one exists, else company post, else news.
     source_url: str = ""
     source_kind: Literal["press_release", "company_post", "news", "post"] = "news"
+    insight: Optional[LTMInsight] = None  # LTM opportunity analysis, added after evaluation
 
     @property
     def source_label(self) -> str:
@@ -145,10 +167,14 @@ class GCC(BaseModel):
 
     @classmethod
     def from_extracted(cls, item: ExtractedItem, source: str) -> "GCC":
-        try:
-            parsed = date.fromisoformat(item.event_date.strip()[:10]) if item.event_date.strip() else None
-        except ValueError:
-            parsed = None
+        def parse(value: str) -> Optional[date]:
+            try:
+                return date.fromisoformat(value.strip()[:10]) if value.strip() else None
+            except ValueError:
+                return None
+
+        # No explicit event date: fall back to the news date (the extraction prompt asks for the same).
+        parsed = parse(item.event_date) or parse(item.reported_date)
         return cls(
             company=item.company.strip(),
             city=item.city.strip(),
@@ -157,6 +183,7 @@ class GCC(BaseModel):
             event_type=item.event_type,
             status=item.status,
             event_date=parsed,
+            reported_date=parse(item.reported_date),
             headcount=item.headcount.strip(),
             summary=item.summary.strip(),
             press_release_url=canonical_url(item.press_release_url) if item.press_release_url else "",

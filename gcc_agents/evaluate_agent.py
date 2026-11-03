@@ -66,7 +66,8 @@ centre) in India = new_gcc; or an existing India GCC opens a new centre/facility
 seat/headcount expansion = expansion.
 Does NOT qualify: rumours, "in talks", hiring-only news, leadership appointments, layoffs/restructuring,
 acquisitions, events/conferences, Indian IT-services firms' ordinary offices, opinion/trend pieces, centres
-outside India.
+outside India, and anything whose "company" is not a business: governments, state agencies, ministries,
+universities, industry bodies, or real-estate / IT-park developers announcing space for GCCs.
 Also set event_type/status to what the evidence supports, normalise sector to one of: {', '.join(SECTORS)},
 and set same_as_prior=true if the candidate describes the same event as one of the listed prior records."""
 
@@ -106,6 +107,28 @@ def is_official_domain(url: str, company_key: str) -> bool:
     return is_pr_wire_or_gov(host) or host_matches_company(host, company_key)
 
 
+def same_company(a: str, b: str) -> bool:
+    """Company keys that name the same firm: equal, or one is a leading-word prefix of the other
+    ("rsm" vs "rsm us integrated services"). Single generic words never match on their own."""
+    if a == b:
+        return True
+    ta, tb = a.split(), b.split()
+    short, long_ = (ta, tb) if len(ta) <= len(tb) else (tb, ta)
+    if not short or len(short[0]) < 3 or short[0] in _GENERIC_FIRST_WORDS:
+        return False
+    return long_[: len(short)] == short
+
+
+def same_group(a: str, b: str) -> bool:
+    """Same leading brand word, even a short one ("lg soft" / "lg electronics"). Only used together with the same
+    city and a 3-day window, where two different firms sharing a first word is very unlikely."""
+    ta, tb = a.split(), b.split()
+    return bool(ta and tb) and ta[0] == tb[0] and ta[0] not in _GENERIC_FIRST_WORDS
+
+
+_GENERIC_FIRST_WORDS = {"bank", "first", "national", "united", "american", "general", "global", "new", "royal", "state"}
+
+
 def merge_candidates(cands: list[GCC]) -> list[GCC]:
     """Merge cross-source duplicates (same company+city, dates within 14 days) into one item."""
     def rank(c: GCC) -> int:
@@ -116,10 +139,15 @@ def merge_candidates(cands: list[GCC]) -> list[GCC]:
     for c in sorted(cands, key=rank):
         target = None
         for m in merged:
-            if m.company_key == c.company_key and m.city_key == c.city_key:
-                if m.event_date is None or c.event_date is None or abs((m.event_date - c.event_date).days) <= 14:
-                    target = m
-                    break
+            if m.city_key != c.city_key:
+                continue
+            gap = abs((m.event_date - c.event_date).days) if m.event_date and c.event_date else 0
+            if same_company(m.company_key, c.company_key) and gap <= 14:
+                target = m
+                break
+            if same_group(m.company_key, c.company_key) and gap <= 3:
+                target = m
+                break
         if target is None:
             merged.append(c.model_copy(deep=True))
             continue
@@ -129,19 +157,42 @@ def merge_candidates(cands: list[GCC]) -> list[GCC]:
         if c.status == "opened":
             target.status = "opened"
         target.event_date = target.event_date or c.event_date
+        dates = [d for d in (target.reported_date, c.reported_date) if d]
+        target.reported_date = max(dates) if dates else None
         target.summary = target.summary or c.summary
     return merged
+
+
+# IT-services / GCC-as-a-service providers (LTM's competitors and LTM itself). Their "GCC" news is a service
+# offering or their own delivery centre, not a client's captive GCC, so it is never reported as one.
+IT_SERVICES_PROVIDERS = {
+    "infosys", "tcs", "tata consultancy services", "wipro", "hcltech", "hcl technologies", "hcl tech",
+    "tech mahindra", "ltimindtree", "ltm", "l and t technology services", "lt technology services", "mphasis",
+    "persistent systems", "persistent", "coforge", "hexaware", "hexaware technologies", "birlasoft", "zensar",
+    "zensar technologies", "cyient", "sonata software", "mastek", "kpit", "kpit technologies", "accenture",
+    "cognizant", "capgemini",
+}
+_PLACEHOLDER_CITIES = {"unknown", "not disclosed", "not stated", "n a", "na", "none", "india", "tbd", "various",
+                       "multiple", "multiple cities", "undisclosed"}
 
 
 def precheck(item: GCC, today: date, settings: Settings) -> Optional[str]:
     """Deterministic gate. Returns a rejection reason, or None if it may proceed."""
     if not item.company:
         return "no company name"
-    if not item.city_key:
+    if item.company_key in IT_SERVICES_PROVIDERS:
+        return "IT-services provider (competitor), not a captive GCC"
+    if not item.city_key or item.city_key.replace("/", " ").replace(".", "") in _PLACEHOLDER_CITIES:
         return "no city stated"
     if item.event_date is None:
         return "no event date"
-    if not (today - timedelta(days=settings.lookback_days) <= item.event_date <= today + timedelta(days=1)):
+    start, end = today - timedelta(days=settings.lookback_days), today + timedelta(days=1)
+    in_window = start <= item.event_date <= end
+    # Late coverage: the news came out inside the window about an event shortly before it (e.g. TIAA's Pune office,
+    # reported 23 Oct, opened ~11 Oct). Allowed up to one extra window back; older events stay out.
+    late_coverage = (item.reported_date is not None and start <= item.reported_date <= end
+                     and item.event_date >= start - timedelta(days=settings.lookback_days))
+    if not (in_window or late_coverage):
         return f"event date {item.event_date} outside the {settings.lookback_days}-day window"
     if item.status != "opened" and not settings.include_announced:
         return "only announced (INCLUDE_ANNOUNCED=false)"

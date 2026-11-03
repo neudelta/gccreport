@@ -32,7 +32,7 @@ class Settings:
     gmail_user: str = field(default_factory=lambda: os.getenv("GMAIL_USER", ""), repr=False)
     gmail_password: str = field(default_factory=lambda: os.getenv("GMAIL_APP_PASSWORD", ""), repr=False)
     to_email: str = field(default_factory=lambda: os.getenv("TO_EMAIL", ""), repr=False)
-    lookback_days: int = field(default_factory=lambda: int(os.getenv("LOOKBACK_DAYS", "7")))
+    lookback_days: int = field(default_factory=lambda: int(os.getenv("LOOKBACK_DAYS", "14")))
     send_empty_report: bool = field(default_factory=lambda: _bool("SEND_EMPTY_REPORT", True))
     include_announced: bool = field(default_factory=lambda: _bool("INCLUDE_ANNOUNCED", True))
     disabled_sources: set = field(

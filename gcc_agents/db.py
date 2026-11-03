@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Iterable, Optional
 
 from . import config
-from .models import GCC, canonical_url, normalize_company
+from .models import GCC, LTMInsight, canonical_url, normalize_company
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS reports (
@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS gcc (
     press_release_url TEXT NOT NULL DEFAULT '',
     source_url TEXT NOT NULL DEFAULT '',
     source_kind TEXT NOT NULL DEFAULT 'press_release',
+    insight TEXT,
     source_urls TEXT,
     discovery_sources TEXT,
     event_key TEXT NOT NULL UNIQUE,
@@ -59,6 +60,8 @@ def _migrate(conn: sqlite3.Connection) -> None:
         conn.execute("UPDATE gcc SET source_url = press_release_url")
     if "source_kind" not in cols:
         conn.execute("ALTER TABLE gcc ADD COLUMN source_kind TEXT NOT NULL DEFAULT 'press_release'")
+    if "insight" not in cols:
+        conn.execute("ALTER TABLE gcc ADD COLUMN insight TEXT")
 
 
 @contextmanager
@@ -135,13 +138,14 @@ def save_report(
         try:
             conn.execute(
                 "INSERT INTO gcc (company, company_key, city, city_key, state, sector, event_type, status,"
-                " event_date, headcount, summary, press_release_url, source_url, source_kind, source_urls,"
+                " event_date, headcount, summary, press_release_url, source_url, source_kind, insight, source_urls,"
                 " discovery_sources, event_key, first_reported_at, report_id)"
-                " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (
                     it.company, it.company_key, it.city, it.city_key, it.state, it.sector, it.event_type,
                     it.status, it.event_date.isoformat() if it.event_date else None, it.headcount, it.summary,
                     canonical_url(it.press_release_url), it.source_url, it.source_kind,
+                    it.insight.model_dump_json() if it.insight else None,
                     json.dumps(it.source_urls), json.dumps(it.discovery_sources), it.event_key, now, report_id,
                 ),
             )
@@ -223,5 +227,16 @@ def load_report(conn: sqlite3.Connection, report_id: Optional[int] = None) -> Op
             press_release_url=r["press_release_url"] or "", source_url=r["source_url"] or "",
             source_kind=r["source_kind"] or "news", source_urls=json.loads(r["source_urls"] or "[]"),
             discovery_sources=json.loads(r["discovery_sources"] or "[]"),
+            insight=LTMInsight.model_validate_json(r["insight"]) if r["insight"] else None,
         ))
     return dict(row), items
+
+
+def save_insights(conn: sqlite3.Connection, items: Iterable[GCC]) -> int:
+    """Store (or refresh) the LTM insight of already-saved items, matched by event_key."""
+    n = 0
+    for it in items:
+        if it.insight is not None:
+            n += conn.execute("UPDATE gcc SET insight = ? WHERE event_key = ?",
+                              (it.insight.model_dump_json(), it.event_key)).rowcount
+    return n

@@ -123,7 +123,7 @@ def test_no_official_press_release_falls_back_to_news_and_is_not_rejected(wired,
     got = final["approved"][0]
     assert got.source_kind == "news" and got.source_url.startswith("https://www.businessstandard.com/")
     assert got.press_release_url == ""
-    assert "News" in wired["sent"][0].html
+    assert "News" in wired["sent"][0].pdf_html and "businessstandard.com" in wired["sent"][0].text
 
 
 def test_company_linkedin_post_beats_news(wired, settings):

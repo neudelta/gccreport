@@ -7,7 +7,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from gcc_agents import config  # noqa: E402
-from gcc_agents.models import GCC  # noqa: E402
+from gcc_agents.models import GCC, LTMInsight  # noqa: E402
 
 TODAY = date(2026, 9, 19)
 
@@ -19,6 +19,25 @@ def tmp_data(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "DB_PATH", tmp_path / "gcc.db")
     monkeypatch.setattr(config, "REPORTS_DIR", tmp_path / "reports")
     return tmp_path
+
+
+FAKE_INSIGHT = LTMInsight(
+    headquarters="Perth, Australia", business_area="Oil and gas producer", products=["LNG", "Oil"],
+    gcc_mandate="AI, cybersecurity and data engineering", scale="150", fit="High",
+    fit_rationale="New centre still scaling its AI and engineering teams.",
+    services=["Talent & workforce", "AI agents & studios"], engagement_model="Build-Operate-Transform-Transfer",
+    talking_points=["Scale AI talent fast", "Agentic operations from day one"],
+    next_step="Brief the India centre head on BlueVerse agents for engineering.",
+)
+
+
+@pytest.fixture(autouse=True)
+def offline(monkeypatch):
+    """No test may call OpenAI or launch Chromium for the PDF."""
+    from gcc_agents import insights_agent, report_agent
+    monkeypatch.setattr(insights_agent, "analyse", lambda settings, item: FAKE_INSIGHT)
+    monkeypatch.setattr(report_agent, "render_pdf", lambda *a, **k: b"%PDF-1.7 fake")
+    monkeypatch.setattr(report_agent, "executive_summary", lambda s, i: "Summary.")
 
 
 @pytest.fixture
