@@ -66,6 +66,53 @@ appears as `gcc_weekly_run`, tagged `live` or `dry-run`, with the full node tree
 Serper, Groq, site scraping, URL checks and email. API keys are never included in spans. Traces do contain the
 text sent to the LLM; set `LANGSMITH_HIDE_INPUTS=true` / `LANGSMITH_HIDE_OUTPUTS=true` to avoid storing it.
 
+## Daily refresh and scheduling on another machine
+
+Two jobs keep everything current:
+
+| Job | Command | What it does |
+|---|---|---|
+| Daily refresh (07:00 IST) | `python main.py --refresh` | Scans the last 3 days (`DAILY_LOOKBACK_DAYS`), same checks as the weekly run, adds new GCCs to `data/gcc.db`. They appear in the dashboard at once. No email. |
+| Weekly email (e.g. Mon 09:00) | `python main.py --once` | Searches the last 2 weeks and emails everything new **plus everything the daily refresh collected since the last email**, then marks them as sent. A GCC is never emailed twice. |
+
+**Moving to the host machine**
+1. `git clone https://github.com/neudelta/gccreport.git`, then the Setup steps above (venv, requirements,
+   `playwright install chromium`).
+2. Copy from this PC (never committed): `.env` and the `data/` folder - `gcc.db` holds the 2026 catalogue and
+   the email history; `gccindex_state.json` is the GCC Index login session (it logs in again if missing).
+3. Schedule:
+   - Windows: `powershell -ExecutionPolicy Bypass -File scripts\schedule_windows.ps1` (options `-DailyTime 07:00
+     -WeeklyDay Monday -WeeklyTime 09:00 -Dashboard`). Uses the machine's local time; missed runs start when
+     the machine is back on.
+   - Linux: see `scripts/crontab.example` (`CRON_TZ=Asia/Kolkata`).
+   - Or one long-running process: `python main.py --schedule --daily 07:00 --cron "mon 09:00"`.
+4. Only one machine should run the jobs against a given `gcc.db`.
+
+## LTM dashboard (live, interactive)
+
+```bash
+python main.py --backfill 2026      # one-off: load all 2026 GCCs into data/gcc.db (~12 min)
+python main.py --dashboard          # then open http://127.0.0.1:8000
+```
+
+- **Filters:** date range, month, city, sector, type (new GCC / expansion), LTM fit, plus free-text search over
+  company, city, sector, summary and the LTM analysis. Quick ranges: last 2 weeks, last 30 days, this quarter,
+  year to date. Click a bar or slice in the charts to filter by it. The address bar keeps the filters, so a view
+  can be bookmarked.
+- **Detail drawer:** click a row for the summary, source and found-by. "Analyse for LTM" generates business area,
+  products, the India centre's mandate and the recommended GCC Origin play, and saves it.
+- **Download:** the LTM PDF briefing or a CSV (opens in Excel) for exactly what is filtered.
+- **Email report:** sends the executive email + PDF for the current filter. Recipients are editable (several,
+  comma-separated) and can be saved as the default. Reports analyse up to 25 un-analysed GCCs first.
+- Runs on this PC only (bound to 127.0.0.1). Actions that send email or spend API credits need a header that
+  other websites cannot add, so a web page you visit cannot trigger them.
+
+**Backfill details.** Sources are your logged-in GCC Index events feed (exact dates) and Google searched one month
+at a time (only results dated inside that month). Same rules as the weekly run, plus: one "new GCC" per company
+and city per year (GCC Index's date preferred), and sectors left as "Other" are re-classified
+(`python main.py --fix-sectors` runs that alone). Backfill stops at the end of the last emailed week, so newer
+GCCs still go out in the next weekly email. Rows are tagged `origin=backfill`.
+
 ## Query the database (whole year, any time)
 
 ```bash

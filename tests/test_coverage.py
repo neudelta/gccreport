@@ -74,3 +74,11 @@ def test_missing_event_date_falls_back_to_the_news_date():
                         event_date="", reported_date="2026-10-27", summary="UP cabinet cleared Havells GCC.")
     item = GCC.from_extracted(raw, "serper")
     assert item.event_date == date(2026, 10, 27) and item.reported_date == date(2026, 10, 27)
+
+
+def test_generic_taglines_are_not_companies(settings):
+    from conftest import TODAY
+    from gcc_agents.evaluate_agent import is_generic_name, precheck
+    assert is_generic_name("transport and logistics")                       # "Global Transport and Logistics"
+    assert not is_generic_name("dsv") and not is_generic_name("clean harbors") and not is_generic_name("us bancorp")
+    assert "not a company" in precheck(make_gcc(company="Global Transport and Logistics"), TODAY, settings)

@@ -11,7 +11,7 @@ padding:0 15mm;display:flex;justify-content:space-between;">
 <span>Internal &middot; page <span class="pageNumber"></span> of <span class="totalPages"></span></span></div>"""
 
 
-def render_pdf(body_html: str, cover_html: str = "", footer_label: str = "India GCC Opportunity Briefing") -> bytes:
+def render_pdf(body_html: str, cover_html: str = "", footer_label: str = "India GCC Weekly Intel Report") -> bytes:
     from playwright.sync_api import sync_playwright
     from pypdf import PdfReader, PdfWriter
 

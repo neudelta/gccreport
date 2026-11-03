@@ -140,3 +140,46 @@ def test_item_with_no_link_at_all_is_rejected(wired, settings):
     final = run(settings)
     assert not final["approved"]
     assert any("no source link" in r["reason"] for r in final["rejected"])
+
+
+# ---- daily refresh (collect) + weekly email ----
+
+def test_daily_refresh_saves_without_email_then_weekly_email_carries_it(wired, settings):
+    wired["serper"] = ([make_gcc()], "ok: 1")
+    final = graph.run_once(settings, today=TODAY, mode="collect")
+    assert final["outcome"] == "collected" and not wired["sent"]
+    with db.connect() as conn:
+        row = conn.execute("SELECT origin, report_id FROM gcc").fetchone()
+        assert tuple(row) == ("daily", None)                     # on the dashboard, not yet emailed
+
+    wired["serper"] = ([], "ok: 0")                               # weekly run finds nothing new itself
+    final = run(settings)
+    assert final["outcome"] == "sent" and "1 new GCC" in wired["sent"][0].subject
+    assert final["already_reported_count"] == 0                   # pending is not "already reported"
+    with db.connect() as conn:
+        assert conn.execute("SELECT report_id FROM gcc").fetchone()[0] is not None   # now linked to the email
+        assert conn.execute("SELECT insight FROM gcc").fetchone()[0]                 # analysis kept
+
+    wired["sent"].clear()
+    wired["serper"] = ([make_gcc()], "ok: 1")                     # next week it is found again
+    final = run(settings)
+    assert "no new GCC activity" in wired["sent"][0].subject and final["already_reported_count"] == 1
+
+
+def test_daily_refresh_found_again_by_weekly_search_is_sent_once(wired, settings):
+    wired["serper"] = ([make_gcc()], "ok: 1")
+    graph.run_once(settings, today=TODAY, mode="collect")
+    final = run(settings)                                         # weekly search re-finds the same GCC
+    assert len(final["enriched"]) == 1 and "1 new GCC" in wired["sent"][0].subject
+
+
+def test_daily_refresh_uses_the_short_window_and_never_writes_report_rows(wired, settings, monkeypatch):
+    seen = {}
+    monkeypatch.setattr(graph.serper_source, "run",
+                        lambda s, t, r, attempt=0: seen.setdefault("lookback", s.lookback_days) and ([], "failed: x"))
+    wired["x"] = ([], "failed: x")
+    wired["sites"] = ([], {"et_gcc": "failed: x"})
+    final = graph.run_once(settings, today=TODAY, mode="collect")
+    assert seen["lookback"] == settings.daily_lookback_days and final["outcome"] == "search_failed"
+    with db.connect() as conn:
+        assert conn.execute("SELECT COUNT(*) FROM reports").fetchone()[0] == 0

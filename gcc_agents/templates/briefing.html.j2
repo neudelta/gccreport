@@ -110,7 +110,7 @@
   <div class="bar"><div class="logo">LTM</div><div class="parent">A Larsen &amp; Toubro<br>Group Company</div></div>
   <div class="titles">
     <div class="eyebrow">GCC Origin &middot; Market Radar</div>
-    <h1>India GCC<br>Opportunity Briefing</h1>
+    <h1>India GCC<br>Weekly Intel Report</h1>
     <div class="period">{{ window_start }} &ndash; {{ window_end }}</div>
     <div class="for">Prepared for LTM leadership &middot; {{ generated }}</div>
   </div>
@@ -167,7 +167,8 @@
   <div class="eyebrow2">Account profiles</div>
   <h2>Company detail and the LTM play</h2>
   <div class="rule"></div>
-  {% for it in items %}
+  {% if profiles_hidden %}<p class="muted" style="margin:-2mm 0 5mm 0;">Detailed profiles for {{ profiles|length }} of {{ items|length }} GCCs (analysed accounts and new GCCs first); all {{ items|length }} are listed in the overview table.</p>{% endif %}
+  {% for it in profiles %}
   {% set ins = it.insight %}
   <div class="acct">
     <div class="head">
@@ -192,7 +193,7 @@
         <p>{{ ins.gcc_mandate if ins else it.summary }}</p>
         {% if (ins and ins.scale) or it.headcount %}<h5>Scale</h5><p>{{ ins.scale if ins and ins.scale else it.headcount }}</p>{% endif %}
         <h5>Source</h5>
-        <p class="src"><a href="{{ it.source_url }}">{{ it.source_label }}{% if it.source_host %} &middot; {{ it.source_host }}{% endif %}</a></p>
+        <p class="src">{% if it.source_url %}<a href="{{ it.source_url }}">{{ it.source_label }}{% if it.source_host %} &middot; {{ it.source_host }}{% endif %}</a>{% else %}<span class="muted">GCC Index (subscription data)</span>{% endif %}</p>
       </div>
     </div>
     {% if ins %}

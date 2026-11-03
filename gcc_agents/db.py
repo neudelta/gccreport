@@ -40,6 +40,7 @@ CREATE TABLE IF NOT EXISTS gcc (
     source_url TEXT NOT NULL DEFAULT '',
     source_kind TEXT NOT NULL DEFAULT 'press_release',
     insight TEXT,
+    origin TEXT NOT NULL DEFAULT 'weekly',
     source_urls TEXT,
     discovery_sources TEXT,
     event_key TEXT NOT NULL UNIQUE,
@@ -49,6 +50,7 @@ CREATE TABLE IF NOT EXISTS gcc (
 CREATE UNIQUE INDEX IF NOT EXISTS ux_gcc_press_release ON gcc(press_release_url) WHERE press_release_url <> '';
 CREATE INDEX IF NOT EXISTS ix_gcc_company ON gcc(company_key);
 CREATE INDEX IF NOT EXISTS ix_gcc_event_date ON gcc(event_date);
+CREATE TABLE IF NOT EXISTS app_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 """
 
 
@@ -62,6 +64,8 @@ def _migrate(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE gcc ADD COLUMN source_kind TEXT NOT NULL DEFAULT 'press_release'")
     if "insight" not in cols:
         conn.execute("ALTER TABLE gcc ADD COLUMN insight TEXT")
+    if "origin" not in cols:
+        conn.execute("ALTER TABLE gcc ADD COLUMN origin TEXT NOT NULL DEFAULT 'weekly'")
 
 
 @contextmanager
@@ -88,6 +92,33 @@ def is_duplicate(conn: sqlite3.Connection, item: GCC) -> bool:
         return True
     url = canonical_url(item.press_release_url)
     return bool(url and conn.execute("SELECT 1 FROM gcc WHERE press_release_url = ?", (url,)).fetchone())
+
+
+def is_reported(conn: sqlite3.Connection, item: GCC) -> bool:
+    """Already emailed (or historical backfill) - as opposed to collected by the daily refresh and still pending."""
+    sql = "SELECT 1 FROM gcc WHERE {} AND (report_id IS NOT NULL OR origin = 'backfill')"
+    if conn.execute(sql.format("event_key = ?"), (item.event_key,)).fetchone():
+        return True
+    url = canonical_url(item.press_release_url)
+    return bool(url and conn.execute(sql.format("press_release_url = ?"), (url,)).fetchone())
+
+
+def pending_unreported(conn: sqlite3.Connection, since: date) -> list[GCC]:
+    """GCCs the daily refresh (or a failed weekly send) stored that no email has carried yet."""
+    rows = conn.execute(
+        "SELECT * FROM gcc WHERE report_id IS NULL AND origin IN ('daily', 'weekly')"
+        " AND (event_date >= ? OR substr(first_reported_at, 1, 10) >= ?) ORDER BY event_date",
+        (since.isoformat(), since.isoformat()),
+    ).fetchall()
+    return [row_to_gcc(r) for r in rows]
+
+
+def mark_reported(conn: sqlite3.Connection, event_keys: Iterable[str], report_id: int) -> int:
+    n = 0
+    for key in event_keys:
+        n += conn.execute("UPDATE gcc SET report_id = ? WHERE event_key = ? AND report_id IS NULL",
+                          (report_id, key)).rowcount
+    return n
 
 
 def prior_for_company(conn: sqlite3.Connection, company: str) -> list[dict]:
@@ -217,19 +248,102 @@ def load_report(conn: sqlite3.Connection, report_id: Optional[int] = None) -> Op
         row = conn.execute("SELECT * FROM reports WHERE id = ?", (report_id,)).fetchone()
     if row is None:
         return None
-    items = []
-    for r in conn.execute("SELECT * FROM gcc WHERE report_id = ? ORDER BY id", (row["id"],)):
-        items.append(GCC(
-            company=r["company"], city=r["city"], state=r["state"] or "", sector=r["sector"] or "Other",
-            event_type=r["event_type"], status=r["status"],
-            event_date=date.fromisoformat(r["event_date"]) if r["event_date"] else None,
-            headcount=r["headcount"] or "", summary=r["summary"] or "",
-            press_release_url=r["press_release_url"] or "", source_url=r["source_url"] or "",
-            source_kind=r["source_kind"] or "news", source_urls=json.loads(r["source_urls"] or "[]"),
-            discovery_sources=json.loads(r["discovery_sources"] or "[]"),
-            insight=LTMInsight.model_validate_json(r["insight"]) if r["insight"] else None,
-        ))
+    items = [row_to_gcc(r) for r in conn.execute("SELECT * FROM gcc WHERE report_id = ? ORDER BY id", (row["id"],))]
     return dict(row), items
+
+
+def row_to_gcc(r) -> GCC:
+    """A `gcc` table row as a GCC model (with its stored LTM insight, if any)."""
+    return GCC(
+        company=r["company"], city=r["city"], state=r["state"] or "", sector=r["sector"] or "Other",
+        event_type=r["event_type"], status=r["status"],
+        event_date=date.fromisoformat(r["event_date"]) if r["event_date"] else None,
+        headcount=r["headcount"] or "", summary=r["summary"] or "",
+        press_release_url=r["press_release_url"] or "", source_url=r["source_url"] or "",
+        source_kind=r["source_kind"] or "news", source_urls=json.loads(r["source_urls"] or "[]"),
+        discovery_sources=json.loads(r["discovery_sources"] or "[]"),
+        insight=LTMInsight.model_validate_json(r["insight"]) if r["insight"] else None,
+    )
+
+
+def save_catalog(conn: sqlite3.Connection, items: Iterable[GCC], origin: str = "backfill") -> int:
+    """Store items found by a backfill (no report). Already-known events are skipped. Returns rows added."""
+    now = datetime.now().isoformat(timespec="seconds")
+    added = 0
+    for it in items:
+        if is_duplicate(conn, it):
+            continue
+        try:
+            conn.execute(
+                "INSERT INTO gcc (company, company_key, city, city_key, state, sector, event_type, status,"
+                " event_date, headcount, summary, press_release_url, source_url, source_kind, insight, origin,"
+                " source_urls, discovery_sources, event_key, first_reported_at, report_id)"
+                " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NULL)",
+                (
+                    it.company, it.company_key, it.city, it.city_key, it.state, it.sector, it.event_type,
+                    it.status, it.event_date.isoformat() if it.event_date else None, it.headcount, it.summary,
+                    canonical_url(it.press_release_url), it.source_url, it.source_kind,
+                    it.insight.model_dump_json() if it.insight else None, origin,
+                    json.dumps(it.source_urls), json.dumps(it.discovery_sources), it.event_key, now,
+                ),
+            )
+            added += 1
+        except sqlite3.IntegrityError:
+            continue
+    return added
+
+
+def get_setting(conn: sqlite3.Connection, key: str, default: str = "") -> str:
+    row = conn.execute("SELECT value FROM app_settings WHERE key = ?", (key,)).fetchone()
+    return row["value"] if row else default
+
+
+def set_setting(conn: sqlite3.Connection, key: str, value: str) -> None:
+    conn.execute("INSERT INTO app_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = ?",
+                 (key, value, value))
+
+
+def search(conn: sqlite3.Connection, start: Optional[str] = None, end: Optional[str] = None,
+           month: Optional[str] = None, city: Optional[str] = None, sector: Optional[str] = None,
+           event_type: Optional[str] = None, fit: Optional[str] = None, q: Optional[str] = None) -> list:
+    """Dashboard query. Every filter is optional; all given filters must match. Returns sqlite rows."""
+    sql, args = "SELECT * FROM gcc WHERE event_date IS NOT NULL", []
+    if start:
+        sql += " AND event_date >= ?"
+        args.append(start)
+    if end:
+        sql += " AND event_date <= ?"
+        args.append(end)
+    if month:
+        sql += " AND substr(event_date, 1, 7) = ?"
+        args.append(month)
+    if city:
+        sql += " AND city_key = ?"
+        from .models import canonical_city
+        args.append(canonical_city(city))
+    if sector:
+        sql += " AND sector = ?"
+        args.append(sector)
+    if event_type:
+        sql += " AND event_type = ?"
+        args.append(event_type)
+    if fit:
+        if fit == "none":
+            sql += " AND insight IS NULL"
+        else:
+            sql += " AND json_extract(insight, '$.fit') = ?"
+            args.append(fit)
+    if q:
+        like = f"%{q.strip().lower()}%"
+        sql += (" AND (lower(company) LIKE ? OR lower(city) LIKE ? OR lower(sector) LIKE ? OR lower(summary) LIKE ?"
+                " OR lower(COALESCE(insight, '')) LIKE ?)")
+        args += [like] * 5
+    sql += " ORDER BY event_date DESC, company"
+    return conn.execute(sql, args).fetchall()
+
+
+def update_insight(conn: sqlite3.Connection, gcc_id: int, insight: LTMInsight) -> None:
+    conn.execute("UPDATE gcc SET insight = ? WHERE id = ?", (insight.model_dump_json(), gcc_id))
 
 
 def save_insights(conn: sqlite3.Connection, items: Iterable[GCC]) -> int:

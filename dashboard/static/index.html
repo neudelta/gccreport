@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LTM GCC Radar</title>
+<style>
+  :root {
+    --coral: #F2553D; --coral-t: #C2391F; --ink: #0B0B0C; --panel: #17191E; --g900: #1F2329; --g700: #3D434C;
+    --g600: #5B6470; --g400: #8C939D; --g300: #D9DDE3; --g200: #E5E7EB; --g100: #F3F4F6; --bg: #EEF0F3; --white: #FFFFFF;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { background: var(--bg); color: var(--ink); font: 14px/1.5 "Segoe UI", Helvetica, Arial, sans-serif; }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  a { color: var(--coral-t); }
+  :focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; }
+
+  /* ---------- header ---------- */
+  header { background: var(--ink); color: #fff; }
+  .bar { max-width: 1360px; margin: 0 auto; padding: 14px 24px; display: flex; align-items: center; gap: 18px; }
+  .logo { font-size: 30px; font-weight: 800; letter-spacing: 1.5px; color: var(--coral); line-height: 1; }
+  .titles { flex: 1; min-width: 0; }
+  .eyebrow { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--coral); font-weight: 700; }
+  .titles h1 { margin: 2px 0 0; font-size: 20px; font-weight: 600; }
+  .parent { font-size: 11px; color: #C9CDD3; text-align: right; line-height: 1.35; }
+  .hero { height: 96px; background: var(--ink) url("/hero.png") center 70% / cover no-repeat; }
+
+  main { max-width: 1360px; margin: -40px auto 0; padding: 0 24px 60px; position: relative; }
+  .card { background: var(--white); border-radius: 10px; box-shadow: 0 1px 2px rgba(0,0,0,.05), 0 4px 16px rgba(0,0,0,.04); }
+
+  /* ---------- filters ---------- */
+  .filters { padding: 16px 18px 12px; }
+  .frow { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px 12px; align-items: end; }
+  .field label { display: block; font-size: 11px; font-weight: 600; letter-spacing: .6px; text-transform: uppercase; color: var(--g600); margin-bottom: 4px; }
+  .field input, .field select { width: 100%; height: 36px; padding: 0 10px; border: 1px solid var(--g300); border-radius: 7px; background: #fff; }
+  .field.search { grid-column: span 2; }
+  .search input { padding-left: 32px; background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%235B6470' stroke-width='2'%3E%3Ccircle cx='7' cy='7' r='5'/%3E%3Cpath d='m11 11 4 4'/%3E%3C/svg%3E") 10px center no-repeat; }
+  .quick { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; align-items: center; }
+  .chip { border: 1px solid var(--g300); background: #fff; border-radius: 999px; padding: 4px 12px; cursor: pointer; font-size: 12.5px; }
+  .chip:hover { border-color: var(--coral); color: var(--coral-t); }
+  .chip.active { background: var(--ink); border-color: var(--ink); color: #fff; }
+  .spacer { flex: 1; }
+  .linkbtn { background: none; border: 0; color: var(--g600); cursor: pointer; text-decoration: underline; font-size: 12.5px; }
+
+  /* ---------- KPIs + actions ---------- */
+  .row { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 14px; }
+  .kpis { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; flex: 1 1 640px; }
+  .kpi { background: var(--ink); color: #fff; border-radius: 10px; padding: 14px 16px; }
+  .kpi .n { font-size: 30px; font-weight: 800; line-height: 1; }
+  .kpi .n.c { color: var(--coral); }
+  .kpi .l { font-size: 12px; color: #C9CDD3; margin-top: 6px; }
+  .actions { display: flex; flex-direction: column; gap: 8px; justify-content: center; flex: 0 1 220px; }
+  .btn { height: 38px; border-radius: 8px; border: 1px solid var(--g300); background: #fff; cursor: pointer; padding: 0 14px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+  .btn:hover { border-color: var(--ink); }
+  .btn.primary { background: var(--coral); border-color: var(--coral); color: #fff; }
+  .btn.primary:hover { background: var(--coral-t); border-color: var(--coral-t); }
+  .btn.dark { background: var(--ink); border-color: var(--ink); color: #fff; }
+  .btn:disabled { opacity: .55; cursor: wait; }
+
+  /* ---------- charts ---------- */
+  .charts { display: grid; grid-template-columns: 1.6fr 1fr 1fr; gap: 14px; margin-top: 14px; }
+  .chart { padding: 14px 16px; min-width: 0; }
+  .chart h3, .tablecard h3 { margin: 0 0 8px; font-size: 14px; }
+  .chart svg { width: 100%; height: auto; display: block; }
+  .legend { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 10px; font-size: 12px; color: var(--g700); margin-top: 6px; }
+  .legend span::before { content: ""; display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 6px; background: var(--c); }
+
+  /* ---------- table ---------- */
+  .tablecard { margin-top: 14px; padding: 14px 0 6px; }
+  .tablehead { display: flex; align-items: center; gap: 12px; padding: 0 16px 8px; }
+  .tablehead .muted { color: var(--g600); font-size: 12.5px; }
+  .tablewrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; min-width: 860px; }
+  th { text-align: left; font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; color: #fff; background: var(--ink); padding: 10px 12px; white-space: nowrap; cursor: pointer; user-select: none; }
+  th[data-sort]:hover { color: var(--coral); }
+  th .arrow { color: var(--coral); margin-left: 4px; }
+  td { padding: 11px 12px; border-bottom: 1px solid var(--g200); vertical-align: top; }
+  tbody tr { cursor: pointer; }
+  tbody tr:hover { background: #FFF6F4; }
+  .co { font-weight: 700; }
+  .sub { font-size: 12px; color: var(--g600); margin-top: 2px; max-width: 420px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .clamp { max-width: 170px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .type { font-weight: 700; font-size: 12.5px; white-space: nowrap; }
+  .type.new { color: var(--coral-t); }
+  .pill { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 11.5px; font-weight: 700; white-space: nowrap; }
+  .pill.High { background: var(--coral); color: #fff; }
+  .pill.Medium { background: var(--g900); color: #fff; }
+  .pill.Low { background: var(--g200); color: var(--g700); }
+  .pill.none { background: transparent; color: var(--g400); border: 1px dashed var(--g300); font-weight: 600; }
+  .src { font-size: 12.5px; white-space: nowrap; }
+  .pager { display: flex; justify-content: flex-end; align-items: center; gap: 6px; padding: 10px 16px; font-size: 12.5px; color: var(--g600); }
+  .pager button { min-width: 32px; height: 30px; border: 1px solid var(--g300); background: #fff; border-radius: 6px; cursor: pointer; }
+  .pager button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .empty { padding: 40px; text-align: center; color: var(--g600); }
+
+  /* ---------- drawer + modal ---------- */
+  .scrim { position: fixed; inset: 0; background: rgba(11,11,12,.45); display: none; z-index: 20; }
+  .scrim.on { display: block; }
+  .drawer { position: fixed; top: 0; right: 0; height: 100%; width: min(560px, 100%); background: #fff; z-index: 21; transform: translateX(100%); transition: transform .2s ease; display: flex; flex-direction: column; }
+  .drawer.on { transform: none; }
+  .dhead { background: var(--ink); color: #fff; padding: 18px 20px; }
+  .dhead .nm { font-size: 20px; font-weight: 700; }
+  .dhead .meta { color: #C9CDD3; font-size: 12.5px; margin-top: 4px; }
+  .close { position: absolute; top: 12px; right: 12px; background: none; border: 0; color: #fff; font-size: 24px; cursor: pointer; line-height: 1; }
+  .dbody { padding: 18px 20px 30px; overflow-y: auto; }
+  .dbody h4 { margin: 18px 0 6px; font-size: 11px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--g600); }
+  .dbody p { margin: 0; }
+  .chips2 span { display: inline-block; border: 1px solid var(--g300); border-radius: 999px; padding: 2px 10px; font-size: 12px; margin: 0 6px 6px 0; }
+  .chips2.svc span { border-color: var(--coral); color: var(--coral-t); font-weight: 600; }
+  .opp { margin-top: 18px; background: var(--g100); border-top: 3px solid var(--coral); padding: 14px 16px; border-radius: 0 0 8px 8px; }
+  .next { background: var(--ink); color: #fff; padding: 10px 12px; border-radius: 6px; margin-top: 12px; font-size: 13px; }
+  .next b { color: var(--coral); }
+  .modal { position: fixed; z-index: 22; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(520px, calc(100% - 32px)); background: #fff; border-radius: 12px; display: none; overflow: hidden; }
+  .modal.on { display: block; }
+  .modal .dhead { padding: 16px 20px; }
+  .modal textarea { width: 100%; min-height: 76px; border: 1px solid var(--g300); border-radius: 8px; padding: 8px 10px; resize: vertical; }
+  .modal .foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+  .note { font-size: 12.5px; color: var(--g600); margin-top: 8px; }
+  .msg { margin-top: 10px; font-size: 13px; }
+  .msg.err { color: #B42318; } .msg.ok { color: #1B7F5C; }
+  .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 10px 16px; border-radius: 8px; z-index: 30; display: none; max-width: calc(100% - 32px); }
+  .toast.on { display: block; }
+  .spin { width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.4); border-top-color: #fff; border-radius: 50%; animation: s 0.8s linear infinite; display: inline-block; }
+  .btn:not(.primary):not(.dark) .spin { border-color: rgba(0,0,0,.2); border-top-color: var(--ink); }
+  @keyframes s { to { transform: rotate(360deg); } }
+  footer { text-align: center; font-size: 11.5px; color: var(--g600); padding: 0 24px 30px; }
+
+  @media (max-width: 1100px) { .charts { grid-template-columns: 1fr 1fr; } .charts .chart:first-child { grid-column: span 2; } }
+  @media (max-width: 760px) {
+    .bar { padding: 12px 16px; } .parent { display: none; } .titles h1 { font-size: 16px; }
+    main { padding: 0 12px 40px; margin-top: -30px; }
+    .hero { height: 70px; }
+    .field.search { grid-column: span 1; }
+    .kpis { grid-template-columns: repeat(2, 1fr); } .kpi .n { font-size: 24px; } .kpi:last-child { grid-column: span 2; }
+    .actions { flex: 1 1 100%; flex-direction: row; flex-wrap: wrap; } .actions .btn { flex: 1 1 140px; }
+    .charts { grid-template-columns: 1fr; } .charts .chart:first-child { grid-column: auto; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <div class="logo">LTM</div>
+    <div class="titles"><div class="eyebrow">GCC Origin &middot; Market Radar</div><h1>India GCC Intelligence Dashboard</h1></div>
+    <div class="parent">A Larsen &amp; Toubro<br>Group Company</div>
+  </div>
+  <div class="hero" role="presentation"></div>
+</header>
+
+<main>
+  <section class="card filters" aria-label="Filters">
+    <div class="frow">
+      <div class="field"><label for="f-start">From</label><input type="date" id="f-start"></div>
+      <div class="field"><label for="f-end">To</label><input type="date" id="f-end"></div>
+      <div class="field"><label for="f-month">Month</label><select id="f-month"><option value="">All months</option></select></div>
+      <div class="field"><label for="f-city">City</label><select id="f-city"><option value="">All cities</option></select></div>
+      <div class="field"><label for="f-sector">Sector</label><select id="f-sector"><option value="">All sectors</option></select></div>
+      <div class="field"><label for="f-type">Type</label><select id="f-type"><option value="">All types</option><option value="new_gcc">New GCC</option><option value="expansion">Expansion</option></select></div>
+      <div class="field"><label for="f-fit">LTM fit</label><select id="f-fit"><option value="">Any</option><option>High</option><option>Medium</option><option>Low</option><option value="none">Not analysed</option></select></div>
+      <div class="field search"><label for="f-q">Search</label><input type="search" id="f-q" placeholder="Company, city, sector or keyword"></div>
+    </div>
+    <div class="quick">
+      <button class="chip" data-range="14">Last 2 weeks</button>
+      <button class="chip" data-range="30">Last 30 days</button>
+      <button class="chip" data-range="quarter">This quarter</button>
+      <button class="chip" data-range="year">2026 to date</button>
+      <span class="spacer"></span>
+      <button class="linkbtn" id="reset">Reset filters</button>
+    </div>
+  </section>
+
+  <div class="row">
+    <section class="kpis" aria-label="Key figures">
+      <div class="kpi"><div class="n c" id="k-total">–</div><div class="l">GCCs in view</div></div>
+      <div class="kpi"><div class="n" id="k-new">–</div><div class="l">New GCCs</div></div>
+      <div class="kpi"><div class="n" id="k-exp">–</div><div class="l">Expansions</div></div>
+      <div class="kpi"><div class="n" id="k-cities">–</div><div class="l">Cities</div></div>
+      <div class="kpi"><div class="n c" id="k-high">–</div><div class="l">High-fit for LTM</div></div>
+    </section>
+    <section class="actions" aria-label="Actions">
+      <button class="btn primary" id="b-email">Email report</button>
+      <button class="btn dark" id="b-pdf">Download PDF</button>
+      <button class="btn" id="b-csv">Download CSV</button>
+    </section>
+  </div>
+
+  <section class="charts">
+    <div class="card chart"><h3>GCCs by month</h3><div id="c-month"></div></div>
+    <div class="card chart"><h3>Sector mix</h3><div id="c-sector"></div></div>
+    <div class="card chart"><h3>Top cities</h3><div id="c-city"></div></div>
+  </section>
+
+  <section class="card tablecard">
+    <div class="tablehead"><h3 style="margin:0">GCC list</h3><span class="muted" id="t-count"></span></div>
+    <div class="tablewrap">
+      <table>
+        <thead><tr>
+          <th data-sort="date">Date</th><th data-sort="company">Company</th><th data-sort="type">Type</th>
+          <th data-sort="city">City</th><th data-sort="sector">Sector</th><th data-sort="headcount">Scale</th>
+          <th data-sort="fit">LTM fit</th><th>Source</th>
+        </tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+    <div class="pager" id="pager"></div>
+  </section>
+</main>
+<footer>Internal &middot; Prepared for LTM leadership &middot; AI-assisted from public sources and GCC Index; verify before client outreach.</footer>
+
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="drawer" aria-label="GCC detail"></aside>
+
+<div class="modal" id="mail" role="dialog" aria-modal="true" aria-labelledby="mail-title">
+  <div class="dhead" style="position:relative"><div class="nm" id="mail-title" style="font-size:17px">Email the LTM brief</div>
+    <div class="meta" id="mail-scope"></div><button class="close" data-close aria-label="Close">&times;</button></div>
+  <div class="dbody">
+    <label for="m-to" style="font-weight:600">Recipients</label>
+    <textarea id="m-to" placeholder="name@ltm.com, another@ltm.com"></textarea>
+    <label style="display:flex;gap:8px;align-items:center;margin-top:8px;font-size:13px"><input type="checkbox" id="m-save" checked> Save as default recipients</label>
+    <p class="note">Sends the India GCC Report email with the India GCC Weekly Intel Report (PDF) attached, for the GCCs in the current filter. LTM analysis is generated first for up to 25 GCCs that don&rsquo;t have it yet, which can take a minute.</p>
+    <div class="msg" id="m-msg" aria-live="polite"></div>
+    <div class="foot"><button class="btn" data-close>Cancel</button><button class="btn primary" id="m-send">Send</button></div>
+  </div>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+const $ = (s, el = document) => el.querySelector(s);
+const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const safeUrl = (u) => /^https?:\/\//i.test(u || "") ? u : "";
+const HEAD = { "X-GCC-Dashboard": "1", "Content-Type": "application/json" };
+const COLORS = ["#F2553D", "#0B0B0C", "#8C939D", "#F5A08F", "#3D434C", "#C9CDD3", "#B8321C", "#5B6470"];
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const PAGE = 25;
+const state = { items: [], sort: { key: "date", dir: -1 }, page: 0, facets: null };
+const F = ["start", "end", "month", "city", "sector", "type", "fit", "q"];
+
+function filters() {
+  const f = {};
+  for (const k of F) { const v = $("#f-" + k).value.trim(); if (v) f[k] = v; }
+  return f;
+}
+function qs(f = filters()) { return new URLSearchParams(f).toString(); }
+function toast(msg, ms = 3500) { const t = $("#toast"); t.textContent = msg; t.classList.add("on"); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("on"), ms); }
+function iso(d) { return d.toISOString().slice(0, 10); }
+function fmtDate(s) { if (!s) return ""; const [y, m, d] = s.split("-"); return `${+d} ${MONTHS[+m - 1]} ${y}`; }
+
+async function api(path, opts = {}) {
+  const r = await fetch(path, opts);
+  if (!r.ok) { let d = r.statusText; try { d = (await r.json()).detail || d; } catch {} throw new Error(d); }
+  return r;
+}
+
+/* ---------- load ---------- */
+async function loadFacets() {
+  const f = await (await api("/api/facets")).json();
+  state.facets = f;
+  const fill = (id, vals, label) => { const s = $(id); for (const v of vals) s.add(new Option(label ? label(v) : v, v)); };
+  fill("#f-month", f.months, (m) => `${MONTHS[+m.slice(5) - 1]} ${m.slice(0, 4)}`);
+  fill("#f-city", f.cities);
+  fill("#f-sector", f.sectors);
+  // restore filters from the address bar so a view can be bookmarked or shared
+  const p = new URLSearchParams(location.search);
+  for (const k of F) if (p.get(k)) $("#f-" + k).value = p.get(k);
+}
+
+let loadSeq = 0;
+async function load() {
+  const seq = ++loadSeq, f = filters();
+  history.replaceState(null, "", "?" + qs(f));
+  try {
+    const d = await (await api("/api/gccs?" + qs(f))).json();
+    if (seq !== loadSeq) return;  // a newer filter change already ran
+    state.items = d.items; state.page = 0;
+    $("#k-total").textContent = d.kpis.total; $("#k-new").textContent = d.kpis.new;
+    $("#k-exp").textContent = d.kpis.expansion; $("#k-cities").textContent = d.kpis.cities;
+    $("#k-high").textContent = d.kpis.high;
+    drawMonth(d.charts.by_month); drawDonut(d.charts.by_sector); drawBars(d.charts.by_city);
+    renderTable();
+  } catch (e) { toast("Could not load data: " + e.message, 6000); }
+}
+
+/* ---------- charts (plain SVG, no external libraries) ---------- */
+function drawMonth(series) {
+  const el = $("#c-month");
+  if (!series.length) { el.innerHTML = '<div class="empty">No data</div>'; return; }
+  const W = 640, H = 210, P = { l: 28, r: 8, t: 14, b: 26 };
+  const max = Math.max(...series.map((s) => s[1])), bw = (W - P.l - P.r) / series.length;
+  const y = (v) => H - P.b - (v / max) * (H - P.t - P.b);
+  let g = "";
+  for (let t = 0; t <= max; t += Math.max(1, Math.ceil(max / 4))) g += `<line x1="${P.l}" x2="${W - P.r}" y1="${y(t)}" y2="${y(t)}" stroke="#E5E7EB"/><text x="${P.l - 6}" y="${y(t) + 4}" text-anchor="end" font-size="10" fill="#8C939D">${t}</text>`;
+  series.forEach(([m, v], i) => {
+    const x = P.l + i * bw + bw * 0.18, w = bw * 0.64, sel = $("#f-month").value === m;
+    g += `<rect x="${x}" y="${y(v)}" width="${w}" height="${H - P.b - y(v)}" rx="3" fill="${sel ? "#0B0B0C" : "#F2553D"}" data-month="${m}" style="cursor:pointer"><title>${MONTHS[+m.slice(5) - 1]} ${m.slice(0, 4)}: ${v}</title></rect>`;
+    g += `<text x="${x + w / 2}" y="${y(v) - 4}" text-anchor="middle" font-size="10.5" font-weight="700" fill="#0B0B0C">${v}</text>`;
+    g += `<text x="${x + w / 2}" y="${H - 8}" text-anchor="middle" font-size="10.5" fill="#5B6470">${MONTHS[+m.slice(5) - 1]}</text>`;
+  });
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="GCCs per month">${g}</svg>`;
+  el.querySelectorAll("rect[data-month]").forEach((r) => r.onclick = () => {
+    const m = r.dataset.month; $("#f-month").value = $("#f-month").value === m ? "" : m; load();
+  });
+}
+function drawDonut(series) {
+  const el = $("#c-sector");
+  if (!series.length) { el.innerHTML = '<div class="empty">No data</div>'; return; }
+  const total = series.reduce((a, s) => a + s[1], 0), R = 70, r = 42, C = 90;
+  let a0 = -Math.PI / 2, g = "";
+  series.forEach(([name, v], i) => {
+    const a1 = a0 + (v / total) * Math.PI * 2, large = a1 - a0 > Math.PI ? 1 : 0;
+    const p = (a, rad) => `${C + rad * Math.cos(a)} ${C + rad * Math.sin(a)}`;
+    const d = series.length === 1
+      ? `M ${C} ${C - R} A ${R} ${R} 0 1 1 ${C - 0.01} ${C - R} L ${C - 0.01} ${C - r} A ${r} ${r} 0 1 0 ${C} ${C - r} Z`
+      : `M ${p(a0, R)} A ${R} ${R} 0 ${large} 1 ${p(a1, R)} L ${p(a1, r)} A ${r} ${r} 0 ${large} 0 ${p(a0, r)} Z`;
+    g += `<path d="${d}" fill="${COLORS[i % COLORS.length]}" stroke="#fff" stroke-width="2" data-sector="${esc(name)}" style="cursor:pointer"><title>${esc(name)}: ${v}</title></path>`;
+    a0 = a1;
+  });
+  g += `<text x="${C}" y="${C + 4}" text-anchor="middle" font-size="24" font-weight="800">${total}</text><text x="${C}" y="${C + 20}" text-anchor="middle" font-size="10" fill="#5B6470">GCCs</text>`;
+  el.innerHTML = `<svg viewBox="0 0 180 180" style="max-width:190px;margin:0 auto" role="img" aria-label="Sector mix">${g}</svg>` +
+    `<div class="legend">${series.map(([n, v], i) => `<span style="--c:${COLORS[i % COLORS.length]}">${esc(n)} (${v})</span>`).join("")}</div>`;
+  el.querySelectorAll("path[data-sector]").forEach((p) => p.onclick = () => {
+    const s = p.dataset.sector; $("#f-sector").value = $("#f-sector").value === s ? "" : s; load();
+  });
+}
+function drawBars(series) {
+  const el = $("#c-city");
+  if (!series.length) { el.innerHTML = '<div class="empty">No data</div>'; return; }
+  const max = Math.max(...series.map((s) => s[1])), W = 300, row = 24;
+  let g = "";
+  series.forEach(([name, v], i) => {
+    const y = i * row + 4, w = (v / max) * (W - 130);
+    g += `<text x="0" y="${y + 13}" font-size="11.5" fill="#1F2329">${esc(name.length > 15 ? name.slice(0, 14) + "…" : name)}</text>`;
+    g += `<rect x="100" y="${y + 2}" width="${Math.max(w, 2)}" height="15" rx="3" fill="#F2553D" data-city="${esc(name)}" style="cursor:pointer"><title>${esc(name)}: ${v}</title></rect>`;
+    g += `<text x="${106 + w}" y="${y + 14}" font-size="11" font-weight="700">${v}</text>`;
+  });
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${series.length * row + 8}" role="img" aria-label="Top cities">${g}</svg>`;
+  el.querySelectorAll("rect[data-city]").forEach((r) => r.onclick = () => {
+    const c = r.dataset.city; $("#f-city").value = $("#f-city").value === c ? "" : c; load();
+  });
+}
+
+/* ---------- table ---------- */
+const FIT_RANK = { High: 0, Medium: 1, Low: 2 };
+function sorted() {
+  const { key, dir } = state.sort;
+  const val = (i) => key === "fit" ? (FIT_RANK[i.fit] ?? 3) : key === "headcount" ? (parseFloat(String(i.headcount).replace(/[^\d.]/g, "")) || 0) : String(i[key] ?? "").toLowerCase();
+  return [...state.items].sort((a, b) => (val(a) > val(b) ? 1 : val(a) < val(b) ? -1 : 0) * dir);
+}
+function renderTable() {
+  const items = sorted(), pages = Math.max(1, Math.ceil(items.length / PAGE));
+  state.page = Math.min(state.page, pages - 1);
+  const view = items.slice(state.page * PAGE, state.page * PAGE + PAGE);
+  $("#t-count").textContent = `${items.length} GCC${items.length === 1 ? "" : "s"}` + (items.length > PAGE ? ` · page ${state.page + 1} of ${pages}` : "");
+  document.querySelectorAll("th[data-sort]").forEach((th) => {
+    th.querySelector(".arrow")?.remove();
+    if (th.dataset.sort === state.sort.key) th.insertAdjacentHTML("beforeend", `<span class="arrow">${state.sort.dir > 0 ? "▲" : "▼"}</span>`);
+  });
+  $("#rows").innerHTML = view.length ? view.map((i) => `
+    <tr data-id="${i.id}" tabindex="0">
+      <td style="white-space:nowrap">${esc(fmtDate(i.date))}</td>
+      <td><div class="co">${esc(i.company)}</div><div class="sub">${esc(i.summary)}</div></td>
+      <td><span class="type ${i.type === "new_gcc" ? "new" : ""}">${i.type === "new_gcc" ? "New GCC" : "Expansion"}</span>${i.status !== "opened" ? '<div class="sub">announced</div>' : ""}</td>
+      <td>${esc(i.city)}</td><td>${esc(i.sector)}</td><td><div class="clamp" title="${esc(i.headcount)}">${esc(i.headcount || "–")}</div></td>
+      <td>${i.fit ? `<span class="pill ${i.fit}">${i.fit}</span>` : '<span class="pill none">Not analysed</span>'}</td>
+      <td class="src">${safeUrl(i.source_url) ? `<a href="${esc(safeUrl(i.source_url))}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">${esc(i.source_label)}</a>` : '<span style="color:#8C939D">GCC Index</span>'}</td>
+    </tr>`).join("") : `<tr><td colspan="8" class="empty">No GCCs match these filters.</td></tr>`;
+  $("#rows").querySelectorAll("tr[data-id]").forEach((tr) => {
+    tr.onclick = () => openDrawer(+tr.dataset.id);
+    tr.onkeydown = (e) => { if (e.key === "Enter") openDrawer(+tr.dataset.id); };
+  });
+  let p = "";
+  if (pages > 1) {
+    p += `<button ${state.page === 0 ? "disabled" : ""} data-p="${state.page - 1}" aria-label="Previous page">‹</button>`;
+    for (let i = 0; i < pages; i++) if (i < 2 || i > pages - 3 || Math.abs(i - state.page) < 2) p += `<button class="${i === state.page ? "on" : ""}" data-p="${i}">${i + 1}</button>`;
+      else if (!p.endsWith("…")) p += "…";
+    p += `<button ${state.page === pages - 1 ? "disabled" : ""} data-p="${state.page + 1}" aria-label="Next page">›</button>`;
+  }
+  $("#pager").innerHTML = p;
+  $("#pager").querySelectorAll("button[data-p]").forEach((b) => b.onclick = () => { state.page = +b.dataset.p; renderTable(); });
+}
+document.querySelectorAll("th[data-sort]").forEach((th) => th.onclick = () => {
+  const k = th.dataset.sort;
+  state.sort = { key: k, dir: state.sort.key === k ? -state.sort.dir : (k === "date" ? -1 : 1) };
+  renderTable();
+});
+
+/* ---------- drawer ---------- */
+function open(el) { $("#scrim").classList.add("on"); el.classList.add("on"); }
+function closeAll() { $("#scrim").classList.remove("on"); $("#drawer").classList.remove("on"); $("#mail").classList.remove("on"); }
+$("#scrim").onclick = closeAll;
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeAll(); });
+document.querySelectorAll("[data-close]").forEach((b) => b.onclick = closeAll);
+
+function insightHtml(ins) {
+  return `
+    <h4>Business area</h4><p>${esc(ins.business_area)}</p>
+    <h4>Products &amp; services</h4><div class="chips2">${(ins.products || []).map((p) => `<span>${esc(p)}</span>`).join("") || "<p>Not disclosed</p>"}</div>
+    <h4>The India centre</h4><p>${esc(ins.gcc_mandate)}</p>
+    ${ins.scale && !ins._scaleShown ? `<h4>Scale</h4><p>${esc(ins.scale)}</p>` : ""}
+    ${ins.headquarters && ins.headquarters !== "Not disclosed" ? `<h4>Headquarters</h4><p>${esc(ins.headquarters)}</p>` : ""}
+    <div class="opp">
+      <div style="font-weight:700">How LTM wins <span style="color:#C2391F">· ${esc(ins.engagement_model)}</span> &nbsp;<span class="pill ${ins.fit}">${ins.fit} fit</span></div>
+      <p style="margin-top:6px">${esc(ins.fit_rationale)}</p>
+      <h4>GCC Origin services to lead with</h4><div class="chips2 svc">${(ins.services || []).map((s) => `<span>${esc(s)}</span>`).join("")}</div>
+      <h4>Talking points</h4><ul style="margin:0;padding-left:18px">${(ins.talking_points || []).map((t) => `<li>${esc(t)}</li>`).join("")}</ul>
+      <div class="next"><b>Next step →</b> ${esc(ins.next_step)}</div>
+    </div>`;
+}
+async function openDrawer(id) {
+  const d = $("#drawer");
+  d.innerHTML = '<div class="dbody">Loading…</div>'; open(d);
+  try {
+    const i = await (await api(`/api/gcc/${id}`)).json();
+    const src = safeUrl(i.source_url);
+    d.innerHTML = `
+      <div class="dhead" style="position:relative">
+        <div class="nm">${esc(i.company)}</div>
+        <div class="meta">${i.type === "new_gcc" ? "New GCC" : "Expansion"}${i.status !== "opened" ? " (announced)" : ""} · ${esc(i.city)}${i.state ? ", " + esc(i.state) : ""} · ${esc(i.sector)} · ${esc(fmtDate(i.date))}</div>
+        <button class="close" data-close aria-label="Close">&times;</button>
+      </div>
+      <div class="dbody">
+        <h4>What happened</h4><p>${esc(i.summary || "–")}</p>
+        ${i.headcount ? `<h4>Scale</h4><p>${esc(i.headcount)}</p>` : ""}
+        <h4>Source</h4><p>${src ? `<a href="${esc(src)}" target="_blank" rel="noopener noreferrer">${esc(i.source_label)}${i.source_host ? " · " + esc(i.source_host) : ""}</a>` : "GCC Index (subscription data)"}</p>
+        <h4>Found by</h4><p>${esc((i.found_by || []).join(", ") || "–")}</p>
+        <div id="ins">${i.insight ? insightHtml({ ...i.insight, _scaleShown: !!i.headcount }) : `
+          <div class="opp"><div style="font-weight:700">LTM opportunity analysis</div>
+          <p class="note" style="margin:6px 0 12px">Not analysed yet. Generates business area, products, the India centre&rsquo;s mandate and the recommended GCC Origin play (about 10&ndash;20 seconds).</p>
+          <button class="btn primary" id="b-analyse">Analyse for LTM</button></div>`}</div>
+      </div>`;
+    d.querySelector("[data-close]").onclick = closeAll;
+    const b = $("#b-analyse");
+    if (b) b.onclick = async () => {
+      b.disabled = true; b.innerHTML = '<span class="spin"></span> Analysing…';
+      try {
+        const r = await (await api(`/api/gcc/${id}/analyse`, { method: "POST", headers: HEAD })).json();
+        $("#ins").innerHTML = insightHtml(r.insight);
+        const row = state.items.find((x) => x.id === id); if (row) { row.fit = r.fit; row.insight = r.insight; renderTable(); }
+        $("#k-high").textContent = state.items.filter((x) => x.fit === "High").length;
+      } catch (e) { b.disabled = false; b.textContent = "Analyse for LTM"; toast("Analysis failed: " + e.message, 6000); }
+    };
+  } catch (e) { d.innerHTML = `<div class="dbody">Could not load: ${esc(e.message)}</div>`; }
+}
+
+/* ---------- actions ---------- */
+async function busy(btn, label, fn) {
+  const old = btn.innerHTML; btn.disabled = true; btn.innerHTML = `<span class="spin"></span> ${label}`;
+  try { await fn(); } catch (e) { toast(e.message, 7000); } finally { btn.disabled = false; btn.innerHTML = old; }
+}
+function download(blob, name) { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); }
+$("#b-pdf").onclick = () => busy($("#b-pdf"), "Building briefing…", async () => {
+  if (!state.items.length) throw new Error("No GCCs in the current filter");
+  const r = await api("/api/report.pdf?" + qs());
+  const name = (r.headers.get("Content-Disposition") || "").match(/filename="([^"]+)"/)?.[1] || "India GCC Weekly Intel Report.pdf";
+  download(await r.blob(), name); toast("Briefing downloaded");
+});
+$("#b-csv").onclick = () => busy($("#b-csv"), "Exporting…", async () => {
+  download(await (await api("/api/export.csv?" + qs())).blob(), "LTM_GCC_list.csv");
+});
+$("#b-email").onclick = async () => {
+  $("#m-msg").textContent = ""; $("#m-msg").className = "msg";
+  $("#mail-scope").textContent = `${state.items.length} GCCs in the current filter`;
+  try { $("#m-to").value = (await (await api("/api/recipients")).json()).recipients || ""; } catch {}
+  open($("#mail")); $("#m-to").focus();
+};
+$("#m-send").onclick = () => busy($("#m-send"), "Sending…", async () => {
+  const msg = $("#m-msg"); msg.className = "msg"; msg.textContent = "";
+  if (!state.items.length) { msg.className = "msg err"; msg.textContent = "No GCCs in the current filter."; return; }
+  try {
+    const r = await (await api("/api/email", { method: "POST", headers: HEAD,
+      body: JSON.stringify({ filters: filters(), recipients: $("#m-to").value, save_default: $("#m-save").checked }) })).json();
+    msg.className = "msg ok"; msg.textContent = `Sent to ${r.recipients.join(", ")}.`;
+    toast("Report emailed"); setTimeout(closeAll, 1800);
+  } catch (e) { msg.className = "msg err"; msg.textContent = e.message; }
+});
+
+/* ---------- filters ---------- */
+let t;
+for (const k of F) $("#f-" + k).addEventListener(k === "q" ? "input" : "change", () => {
+  document.querySelectorAll(".chip").forEach((c) => c.classList.remove("active"));
+  clearTimeout(t); t = setTimeout(load, k === "q" ? 250 : 0);
+});
+document.querySelectorAll(".chip[data-range]").forEach((c) => c.onclick = () => {
+  const today = new Date(), r = c.dataset.range; let start;
+  if (r === "year") start = new Date(today.getFullYear(), 0, 1);
+  else if (r === "quarter") start = new Date(today.getFullYear(), Math.floor(today.getMonth() / 3) * 3, 1);
+  else start = new Date(today.getTime() - (+r) * 864e5);
+  $("#f-start").value = iso(new Date(start.getTime() - start.getTimezoneOffset() * 6e4)); $("#f-end").value = iso(today); $("#f-month").value = "";
+  document.querySelectorAll(".chip").forEach((x) => x.classList.toggle("active", x === c));
+  load();
+});
+$("#reset").onclick = () => { for (const k of F) $("#f-" + k).value = ""; document.querySelectorAll(".chip").forEach((c) => c.classList.remove("active")); load(); };
+
+loadFacets().then(load).catch((e) => toast("Could not start: " + e.message, 8000));
+</script>
+</body>
+</html>

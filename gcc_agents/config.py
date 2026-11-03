@@ -33,6 +33,8 @@ class Settings:
     gmail_password: str = field(default_factory=lambda: os.getenv("GMAIL_APP_PASSWORD", ""), repr=False)
     to_email: str = field(default_factory=lambda: os.getenv("TO_EMAIL", ""), repr=False)
     lookback_days: int = field(default_factory=lambda: int(os.getenv("LOOKBACK_DAYS", "14")))
+    # the daily refresh looks back a few days (overlapping runs, so a missed day is still covered)
+    daily_lookback_days: int = field(default_factory=lambda: int(os.getenv("DAILY_LOOKBACK_DAYS", "3")))
     send_empty_report: bool = field(default_factory=lambda: _bool("SEND_EMPTY_REPORT", True))
     include_announced: bool = field(default_factory=lambda: _bool("INCLUDE_ANNOUNCED", True))
     disabled_sources: set = field(

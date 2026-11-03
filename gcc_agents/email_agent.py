@@ -1,4 +1,6 @@
 """Send the report through Gmail SMTP (App Password)."""
+import dataclasses
+import re
 import smtplib
 import ssl
 import time
@@ -38,8 +40,24 @@ def build_message(settings: Settings, report: Report) -> MIMEMultipart:
         msg = related
     msg["Subject"] = report.subject
     msg["From"] = settings.gmail_user
-    msg["To"] = settings.to_email
+    msg["To"] = ", ".join(parse_recipients(settings.to_email))
     return msg
+
+
+_EMAIL_RE = re.compile(r"^[^@\s,;<>]+@[^@\s,;<>]+\.[A-Za-z]{2,}$")
+
+
+def parse_recipients(value: str) -> list[str]:
+    """'a@x.com, b@y.com; c@z.com' -> unique addresses in order. Raises ValueError on an invalid address."""
+    out: list[str] = []
+    for part in re.split(r"[,;\s]+", value or ""):
+        if not part:
+            continue
+        if not _EMAIL_RE.match(part):
+            raise ValueError(f"not a valid email address: {part}")
+        if part.lower() not in (o.lower() for o in out):
+            out.append(part)
+    return out
 
 
 def missing_config(settings: Settings) -> list[str]:
@@ -53,11 +71,18 @@ def missing_config(settings: Settings) -> list[str]:
 
 
 @trace_tool("send_email", process_inputs=lambda d: {"subject": d["report"].subject})
-def send(settings: Settings, report: Report, retries: int = 1) -> tuple[bool, str]:
-    """Returns (sent, detail). Never raises; the caller decides what a failure means."""
+def send(settings: Settings, report: Report, retries: int = 1, recipients: str = "") -> tuple[bool, str]:
+    """Returns (sent, detail). Never raises; the caller decides what a failure means.
+    `recipients` (comma-separated) overrides TO_EMAIL for this one message."""
+    if recipients:
+        settings = dataclasses.replace(settings, to_email=recipients)
     missing = missing_config(settings)
     if missing:
         return False, f"missing settings: {', '.join(missing)}"
+    try:
+        parse_recipients(settings.to_email)
+    except ValueError as exc:
+        return False, str(exc)
     msg = build_message(settings, report)
     last = ""
     for attempt in range(retries + 1):

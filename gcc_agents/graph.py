@@ -1,9 +1,15 @@
-"""LangGraph wiring:
+"""LangGraph wiring.
 
-  prepare -> [serper | x | sites] (parallel) -> evaluate -> report -> email
+mode="email" (weekly):
+  prepare -> [serper | x | sites] (parallel) -> evaluate -> insights -> report -> email
                                                   |  ^
                                    (nothing approved, one retry) serper_retry
+  The email carries what this run approved plus everything the daily refresh collected since the last email.
+
+mode="collect" (daily refresh):
+  prepare -> [serper | x | sites] -> evaluate -> collect (save new GCCs to the database, no email)
 """
+import dataclasses
 import logging
 import operator
 from datetime import date, datetime, timedelta
@@ -37,7 +43,8 @@ class State(TypedDict, total=False):
     source_status: Annotated[dict, _merge]
     processed: int
     attempts: int
-    enriched: list[GCC]  # approved items with their LTM insight
+    pending: list[GCC]   # collected by the daily refresh, not yet emailed
+    enriched: list[GCC]  # approved + pending items with their LTM insight
     report: Optional[Report]
     outcome: str
 
@@ -46,7 +53,7 @@ def _any_source_ok(status: dict) -> bool:
     return any(v.startswith("ok") for v in status.values())
 
 
-def build_graph(settings: Settings, dry_run: bool = False, today: Optional[date] = None):
+def build_graph(settings: Settings, dry_run: bool = False, today: Optional[date] = None, mode: str = "email"):
     def prepare(state: State) -> dict:
         t = today or date.today()
         with db.connect() as conn:
@@ -90,16 +97,37 @@ def build_graph(settings: Settings, dry_run: bool = False, today: Optional[date]
         if outside:  # GCC Index alone returns ~100 older rows, so summarise instead of one line each
             log.info("  %d candidate(s) rejected as outside the %d-day window", len(outside), settings.lookback_days)
         record_run(new, approved, rejected, state, append=state["processed"] > 0)
-        return {"approved": approved, "rejected": rejected, "already_reported_count": dups,
-                "processed": len(state.get("candidates", []))}
+        out = {"approved": approved, "rejected": rejected, "already_reported_count": dups,
+               "processed": len(state.get("candidates", []))}
+        if mode == "email":
+            seen = {a.event_key for a in state.get("approved", []) + approved}
+            with db.connect() as conn:
+                out["pending"] = [p for p in db.pending_unreported(conn, state["window_start"])
+                                  if p.event_key not in seen]
+            if out["pending"]:
+                log.info("evaluate: + %d GCC(s) collected by the daily refresh since the last email",
+                         len(out["pending"]))
+        return out
+
+    def collect(state: State) -> dict:
+        approved = state.get("approved", [])
+        if dry_run:
+            log.info("collect (dry run): %d new GCC(s) would be added", len(approved))
+            return {"outcome": "dry_run"}
+        with db.connect() as conn:
+            added = db.save_catalog(conn, approved, origin="daily")
+        log.info("collect: %d new GCC(s) added to the dashboard database", added)
+        return {"outcome": "collected"}
 
     def insights(state: State) -> dict:
-        enriched = insights_agent.enrich(settings, state.get("approved", []))
+        enriched = insights_agent.enrich(settings, state.get("approved", []) + state.get("pending", []))
         log.info("insights: %d of %d companies profiled for LTM", sum(1 for i in enriched if i.insight), len(enriched))
         return {"enriched": enriched}
 
     def route_after_evaluate(state: State) -> str:
-        if state.get("approved"):
+        if mode == "collect":
+            return "collect" if _any_source_ok(state["source_status"]) else "search_failed"
+        if state.get("approved") or state.get("pending"):
             return "insights"
         if not _any_source_ok(state["source_status"]):
             return "search_failed"
@@ -109,7 +137,7 @@ def build_graph(settings: Settings, dry_run: bool = False, today: Optional[date]
 
     def search_failed(state: State) -> dict:
         log.error("all sources failed; not claiming 'no new GCCs': %s", state["source_status"])
-        if not dry_run:
+        if not dry_run and mode == "email":  # the reports table is the email history
             with db.connect() as conn:
                 db.save_report(conn, window_start=state["window_start"], window_end=state["window_end"],
                                items=[], email_status="search_failed", sent_at=None, html_path=None,
@@ -123,7 +151,7 @@ def build_graph(settings: Settings, dry_run: bool = False, today: Optional[date]
         return {"report": rep}
 
     def route_after_report(state: State) -> str:
-        if not state.get("approved") and not settings.send_empty_report:
+        if not state.get("enriched") and not state.get("approved") and not settings.send_empty_report:
             return "skip"
         return "email"
 
@@ -147,15 +175,18 @@ def build_graph(settings: Settings, dry_run: bool = False, today: Optional[date]
             (config.REPORTS_DIR / f"report_{stamp}.html").write_text(rep.html, encoding="utf-8")
             if rep.pdf:
                 (config.REPORTS_DIR / f"briefing_{stamp}.pdf").write_bytes(rep.pdf)
+        items = state.get("enriched") or state.get("approved", [])
         with db.connect() as conn:
             # Items are committed only after a successful send, so a failed send never "burns" them.
-            _, saved = db.save_report(
+            report_id, saved = db.save_report(
                 conn, window_start=state["window_start"], window_end=state["window_end"],
-                items=(state.get("enriched") or state.get("approved", [])) if sent else [],
-                email_status="sent" if sent else "send_failed",
+                items=items if sent else [], email_status="sent" if sent else "send_failed",
                 sent_at=datetime.now() if sent else None, html_path=html_path,
                 source_status=state["source_status"],
             )
+            if sent:  # rows the daily refresh had stored: link them to this email and keep their analysis
+                db.save_insights(conn, items)
+                saved += db.mark_reported(conn, [i.event_key for i in items], report_id)
         if sent:
             log.info("email sent (%d GCC items saved to DB)", saved)
             return {"outcome": "sent"}
@@ -165,6 +196,7 @@ def build_graph(settings: Settings, dry_run: bool = False, today: Optional[date]
     g = StateGraph(State)
     for name, fn in [("prepare", prepare), ("serper", serper_node), ("x", x_node), ("sites", sites_node),
                      ("serper_retry", serper_retry), ("evaluate", evaluate), ("insights", insights),
+                     ("collect", collect),
                      ("search_failed", search_failed),
                      ("report", report), ("skip", skip), ("email", email)]:
         g.add_node(name, fn)
@@ -175,10 +207,10 @@ def build_graph(settings: Settings, dry_run: bool = False, today: Optional[date]
     g.add_edge("serper_retry", "evaluate")
     g.add_conditional_edges("evaluate", route_after_evaluate,
                             {"insights": "insights", "report": "report", "search_failed": "search_failed",
-                             "serper_retry": "serper_retry"})
+                             "serper_retry": "serper_retry", "collect": "collect"})
     g.add_edge("insights", "report")
     g.add_conditional_edges("report", route_after_report, {"email": "email", "skip": "skip"})
-    for terminal in ("search_failed", "skip", "email"):
+    for terminal in ("search_failed", "skip", "email", "collect"):
         g.add_edge(terminal, END)
     return g.compile()
 
@@ -214,12 +246,14 @@ def write_previews(rep: Report) -> None:
         (config.DATA_DIR / "preview_briefing.html").write_text(rep.pdf_html, encoding="utf-8")
 
 
-def run_once(settings: Settings, dry_run: bool = False, today: Optional[date] = None) -> State:
-    graph = build_graph(settings, dry_run=dry_run, today=today)
+def run_once(settings: Settings, dry_run: bool = False, today: Optional[date] = None, mode: str = "email") -> State:
+    if mode == "collect":  # daily refresh: short look-back, everything else identical
+        settings = dataclasses.replace(settings, lookback_days=settings.daily_lookback_days)
+    graph = build_graph(settings, dry_run=dry_run, today=today, mode=mode)
     # These show up in LangSmith to make runs easy to filter (tags) and inspect (metadata).
     trace_cfg = {
-        "run_name": "gcc_weekly_run",
-        "tags": ["gcc-india", "dry-run" if dry_run else "live"],
+        "run_name": "gcc_daily_refresh" if mode == "collect" else "gcc_weekly_run",
+        "tags": ["gcc-india", mode, "dry-run" if dry_run else "live"],
         "metadata": {
             "dry_run": dry_run,
             "lookback_days": settings.lookback_days,

@@ -6,6 +6,10 @@
   python main.py --stats --year 2026
   python main.py --export-csv gcc_2026.csv [--year 2026]
   python main.py --resend-last [--dry-run]
+  python main.py --backfill 2026 [--dry-run] [--no-google]
+  python main.py --refresh                 (daily: add new GCCs to the database, no email)
+  python main.py --schedule --daily 07:00 --cron "mon 09:00"
+  python main.py --dashboard [--port 8000]
   python main.py --why "TIAA, Havells"     (what happened to these companies in the last run)
   python main.py --reset-db
 """
@@ -39,12 +43,12 @@ def setup_logging() -> None:
         logging.getLogger(noisy).setLevel(logging.WARNING)
 
 
-def safe_run(settings, dry_run: bool) -> None:
+def safe_run(settings, dry_run: bool, mode: str = "email") -> None:
     """One pipeline run; a crash is logged and never kills the scheduler."""
     try:
-        run_once(settings, dry_run=dry_run)
+        run_once(settings, dry_run=dry_run, mode=mode)
     except Exception:
-        log.exception("pipeline run crashed")
+        log.exception("pipeline run (%s) crashed", mode)
 
 
 def explain(names: str) -> int:
@@ -123,7 +127,10 @@ def main() -> int:
     ap.add_argument("--once", action="store_true", help="run the pipeline once")
     ap.add_argument("--schedule", action="store_true", help="run on a schedule (blocking)")
     ap.add_argument("--interval-min", type=int, default=5, help="schedule interval in minutes (default 5)")
-    ap.add_argument("--cron", help='weekly schedule instead of interval, e.g. "mon 09:00"')
+    ap.add_argument("--cron", help='weekly email schedule instead of interval, e.g. "mon 09:00"')
+    ap.add_argument("--daily", metavar="HH:MM", help='with --schedule: daily refresh time, e.g. "07:00"')
+    ap.add_argument("--refresh", action="store_true",
+                    help="daily refresh: scan the last few days and add new GCCs to the database (no email)")
     ap.add_argument("--dry-run", action="store_true", help="write data/preview.html; no email, no DB writes")
     ap.add_argument("--only", help="comma list of sources: " + ",".join(config.ALL_SOURCES))
     ap.add_argument("--list", action="store_true", help="list stored GCC items")
@@ -135,6 +142,12 @@ def main() -> int:
     ap.add_argument("--type", choices=["new_gcc", "expansion"])
     ap.add_argument("--resend-last", action="store_true",
                     help="rebuild the last sent report from the database and email it again (uses the current layout)")
+    ap.add_argument("--backfill", type=int, metavar="YEAR",
+                    help="load that year's GCCs (GCC Index + month-by-month Google) into the database")
+    ap.add_argument("--fix-sectors", action="store_true", help="re-classify stored rows whose sector is 'Other'")
+    ap.add_argument("--no-google", action="store_true", help="with --backfill: GCC Index only")
+    ap.add_argument("--dashboard", action="store_true", help="run the LTM dashboard at http://127.0.0.1:8000")
+    ap.add_argument("--port", type=int, default=8000, help="dashboard port (default 8000)")
     ap.add_argument("--why", metavar="NAMES",
                     help='explain what the last run did with these companies, e.g. --why "TIAA, Havells"')
     ap.add_argument("--graph", action="store_true", help="print the LangGraph structure as Mermaid and exit")
@@ -175,6 +188,25 @@ def main() -> int:
     if args.why:
         return explain(args.why)
 
+    if args.fix_sectors:
+        from gcc_agents import backfill
+        print(f"re-classified {backfill.reclassify_sectors(settings)} rows")
+        return 0
+
+    if args.backfill:
+        from gcc_agents import backfill
+        res = backfill.run(settings, args.backfill, dry_run=args.dry_run, use_google=not args.no_google)
+        print(f"backfill {args.backfill} ({res.start} to {res.end}): GCC Index rows {res.gccindex_rows}, "
+              f"Google candidates {res.google_candidates}, kept {len(res.kept)}, rejected {len(res.rejected)}, "
+              + ("dry run: see data/backfill_preview.csv" if args.dry_run else f"added {res.added} to the database"))
+        return 0
+
+    if args.dashboard:
+        import uvicorn
+        print(f"LTM GCC dashboard: http://127.0.0.1:{args.port}  (Ctrl+C to stop)")
+        uvicorn.run("dashboard.app:app", host="127.0.0.1", port=args.port, log_level="warning")
+        return 0
+
     if args.resend_last:
         return resend_last(settings, dry_run=args.dry_run)
 
@@ -185,11 +217,16 @@ def main() -> int:
         from datetime import datetime
 
         sched = BlockingScheduler()
+        if args.daily:
+            hh, mm = (int(x) for x in args.daily.split(":"))
+            sched.add_job(safe_run, CronTrigger(hour=hh, minute=mm), args=[settings, args.dry_run, "collect"],
+                          max_instances=1, coalesce=True, misfire_grace_time=3600)
+            log.info("scheduled daily refresh: %s", args.daily)
         if args.cron:
             sched.add_job(safe_run, CronTrigger(**parse_cron(args.cron)), args=[settings, args.dry_run],
                           max_instances=1, coalesce=True)
             log.info("scheduled weekly: %s", args.cron)
-        else:
+        elif not args.daily:
             sched.add_job(safe_run, IntervalTrigger(minutes=args.interval_min), args=[settings, args.dry_run],
                           max_instances=1, coalesce=True, next_run_time=datetime.now())
             log.info("scheduled every %d minute(s); Ctrl+C to stop", args.interval_min)
@@ -198,6 +235,11 @@ def main() -> int:
         except (KeyboardInterrupt, SystemExit):
             log.info("scheduler stopped")
         return 0
+
+    if args.refresh:
+        final = run_once(settings, dry_run=args.dry_run, mode="collect")
+        print(f"outcome: {final.get('outcome')}  new GCCs: {len(final.get('approved', []))}")
+        return 0 if final.get("outcome") != "search_failed" else 2
 
     if args.once or args.dry_run:
         final = run_once(settings, dry_run=args.dry_run)

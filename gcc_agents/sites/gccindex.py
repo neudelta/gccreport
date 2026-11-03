@@ -10,7 +10,7 @@ directly: the site refuses that ("Direct access not permitted"). We also ask the
 using its own dropdown. The raw capture is written to data/gccindex_debug.txt for troubleshooting.
 """
 import json
-from datetime import date
+from datetime import date, timedelta
 from typing import Optional
 
 from .. import config
@@ -39,6 +39,12 @@ _SECTOR = {
 def parse_events(bodies: list[str], today: date, lookback_days: int) -> list[GCC]:
     """Turn the feed's JSON into GCC items. Rows up to ~4 months old are kept: evaluate rejects the ones
     outside the window, and uses them to recognise stale re-reports of an older announcement."""
+    start = today - timedelta(days=lookback_days + 121)
+    return parse_rows(bodies, start, today + timedelta(days=1))
+
+
+def parse_rows(bodies: list[str], start: date, end: date) -> list[GCC]:
+    """All feed rows announced between start and end (inclusive) as GCC items."""
     seen: set[str] = set()
     items: list[GCC] = []
     for body in bodies:
@@ -51,12 +57,14 @@ def parse_events(bodies: list[str], today: date, lookback_days: int) -> list[GCC
         for row in rows:
             if not isinstance(row, dict) or not row.get("companyName"):
                 continue
-            key = str(row.get("id") or f"{row['companyName']}|{row.get('announcementDate')}")
+            # The feed stopped sending ids; company+city+type+date identifies a row (RSM had two cities one day)
+            key = str(row.get("id") or "|".join(str(row.get(k) or "") for k in
+                                                ("companyName", "city", "eventType", "announcementDate")))
             if key in seen:
                 continue
             seen.add(key)
             when: Optional[date] = parse_any_date(str(row.get("announcementDate") or ""))
-            if when is None or not in_window(when, today, lookback_days + 120):
+            if when is None or not (start <= when <= end):
                 continue
             kind = "new_gcc" if str(row.get("eventType", "")).upper() == "NEW_GCC" else "expansion"
             jobs = row.get("jobsCount")
@@ -100,6 +108,13 @@ def _show_20_per_page(page) -> None:
 
 
 def fetch(browser, settings, today: date) -> list[Doc]:
+    bodies = capture_feed(browser, settings)
+    items = parse_events(bodies, today, settings.lookback_days)
+    return [Doc(url=EVENTS, text="", items=items)]
+
+
+def capture_feed(browser, settings) -> list[str]:
+    """Open the events page as the logged-in user and return the feed JSON the page itself loaded."""
     if not (settings.gccindex_user and settings.gccindex_pass):
         raise SiteSkipped("GCCINDEX_USERNAME / GCCINDEX_PASSWORD not set")
     state = config.GCCINDEX_STATE
@@ -129,9 +144,7 @@ def fetch(browser, settings, today: date) -> list[Doc]:
 
     config.DATA_DIR.mkdir(parents=True, exist_ok=True)
     dump = f"URL: {EVENTS}\n{page_text}\n\n" + "\n\n".join(f"# {FEED_PATH}\n{b}" for b in bodies)
-    (config.DATA_DIR / "gccindex_debug.txt").write_text(dump[:200000], encoding="utf-8")
-
-    items = parse_events(bodies, today, settings.lookback_days)
-    if not items and not bodies:
+    (config.DATA_DIR / "gccindex_debug.txt").write_text(dump[:2_000_000], encoding="utf-8")
+    if not bodies:
         raise SiteBlocked("GCC Index feed did not load (layout may have changed)")
-    return [Doc(url=EVENTS, text="", items=items)]
+    return bodies

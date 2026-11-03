@@ -20,7 +20,7 @@ def test_report_with_items(settings, monkeypatch):
                  press_release_url="https://b.com/1"),
     ]
     rep = _build(settings, items, dups=2, monkeypatch=monkeypatch)
-    assert "1 new GCC · 1 expansion" in rep.subject
+    assert rep.subject.startswith("India GCC Report | 1 new GCC · 1 expansion")
     assert rep.chart_png.startswith(PNG) and rep.chart_cid == "sector_pie"
     assert "cid:sector_pie" in rep.html
     assert "Acme Corp" in rep.html and "Beta Bank" in rep.html
@@ -33,7 +33,7 @@ def test_report_with_items(settings, monkeypatch):
 
 def test_report_empty_week(settings, monkeypatch):
     rep = _build(settings, [], dups=1, monkeypatch=monkeypatch)
-    assert "no new GCC activity" in rep.subject
+    assert rep.subject.startswith("India GCC Report | no new GCC activity")
     assert rep.chart_png is None and "cid:sector_pie" not in rep.html  # the LTM hero is always there
     assert "No new GCC launches or expansions" in rep.html
 
@@ -52,14 +52,16 @@ def test_ltm_email_overview_table_and_briefing(settings, monkeypatch):
     html = rep.html
     # LTM theme and a phone-safe overview table (4 short columns, sector hidden on small screens)
     assert ">LTM<" in html and "GCC Origin" in html and "#F2553D" in html
+    assert ">India GCC Report</div>" in html and "Opportunity Brief" not in html   # headline matches the subject
     assert html.count("<th ") == 4 and 'class="hide-sm"' in html and "max-width:720px" in html
     assert "@media only screen and (max-width: 520px)" in html
     assert html.index("Woodside Energy") < html.index(">Beta<")           # high fit is listed first
     assert "Where GCC Origin can engage first" in html and "Build-Operate-Transform-Transfer" in html
-    assert "cid:ltm_hero" in html and "cid:sector_pie" in html and "Full briefing attached" in html
+    assert "cid:ltm_hero" in html and "cid:sector_pie" in html and "India GCC Weekly Intel Report attached" in html
     assert "announced" in html                                            # announced items are flagged
     # detailed briefing: business area, products, India-centre mandate and the LTM play
-    assert rep.pdf == b"%PDF-1.7 fake" and rep.pdf_name.endswith(".pdf")
+    assert rep.pdf == b"%PDF-1.7 fake" and rep.pdf_name.startswith("India GCC Weekly Intel Report")
+    assert rep.pdf_name.endswith(".pdf") and "India GCC<br>Weekly Intel Report" in rep.pdf_html
     for text in ("Business area", "Products &amp; services", "The India centre", "How LTM wins",
                  "Oil and gas producer", "LNG", "Next step", "LTM GCC Origin at a glance"):
         assert text in rep.pdf_html, text
@@ -68,7 +70,7 @@ def test_ltm_email_overview_table_and_briefing(settings, monkeypatch):
 
 def test_no_pdf_for_an_empty_week(settings, monkeypatch):
     rep = _build(settings, [], monkeypatch=monkeypatch)
-    assert rep.pdf is None and "Full briefing attached" not in rep.html
+    assert rep.pdf is None and "Intel Report attached" not in rep.html
 
 
 def test_source_host_is_short_and_only_for_news_and_posts():

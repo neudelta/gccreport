@@ -1,4 +1,9 @@
+import os
 import sys
+
+# Tests never send traces anywhere, whatever .env says (config loads .env with override=False, so these win).
+for _var in ("LANGSMITH_TRACING", "LANGCHAIN_TRACING_V2", "LANGSMITH_TRACING_V2"):
+    os.environ[_var] = "false"
 from datetime import date
 from pathlib import Path
 

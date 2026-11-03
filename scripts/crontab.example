@@ -1,0 +1,10 @@
+# LTM GCC jobs for a Linux host (crontab -e). Times are India Standard Time.
+# Setup first: python -m venv .venv && .venv/bin/pip install -r requirements.txt
+#              .venv/bin/python -m playwright install --with-deps chromium
+#              copy .env and data/ (gcc.db + gccindex_state.json) from the current machine
+CRON_TZ=Asia/Kolkata
+# daily refresh: new GCCs into the dashboard database (no email)
+0 7 * * *  cd /opt/gccreport && .venv/bin/python main.py --refresh >> data/cron.log 2>&1
+# weekly LTM email (Monday 09:00)
+0 9 * * 1  cd /opt/gccreport && .venv/bin/python main.py --once    >> data/cron.log 2>&1
+# dashboard: run it as a service instead (e.g. systemd) with: .venv/bin/python main.py --dashboard

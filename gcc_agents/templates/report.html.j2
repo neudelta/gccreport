@@ -40,7 +40,7 @@
   {# ---------- hero ---------- #}
   <tr><td class="px" bgcolor="{{ INK }}" style="background:{{ INK }};padding:14px 28px 6px 28px;">
     <div style="font-size:12px;letter-spacing:2px;text-transform:uppercase;color:{{ CORAL }};font-weight:700;">GCC Origin &middot; Market Radar</div>
-    <div class="h1" style="font-size:32px;line-height:1.15;font-weight:700;color:#FFFFFF;margin-top:8px;">India GCC Opportunity Brief</div>
+    <div class="h1" style="font-size:32px;line-height:1.15;font-weight:700;color:#FFFFFF;margin-top:8px;">India GCC Report</div>
     <div style="font-size:14px;color:#C9CDD3;margin-top:8px;">{{ window_start }} &ndash; {{ window_end }} &nbsp;|&nbsp; Prepared for LTM leadership</div>
   </td></tr>
   <tr><td bgcolor="{{ INK }}" style="background:{{ INK }};padding:0;line-height:0;font-size:0;">
@@ -80,7 +80,7 @@
         <th align="left" class="hide-sm" style="padding:10px 10px;font-weight:600;">Sector</th>
         <th align="left" style="padding:10px 10px;font-weight:600;">LTM fit</th>
       </tr>
-      {% for it in items %}
+      {% for it in email_items %}
       <tr style="border-bottom:1px solid #E5E7EB;{% if loop.index is even %}background:#F7F8FA;{% endif %}">
         <td valign="top" style="padding:11px 10px;word-break:break-word;">
           <div style="font-weight:700;font-size:14px;color:{{ INK }};">{{ it.company }}</div>
@@ -94,6 +94,9 @@
         <td valign="top" style="padding:11px 10px;">{{ fit_pill(it.insight.fit if it.insight else None) }}</td>
       </tr>
       {% endfor %}
+      {% if more_count %}
+      <tr><td colspan="4" style="padding:12px 10px;font-size:13px;color:#5B6470;">+ {{ more_count }} more in the attached briefing.</td></tr>
+      {% endif %}
     </table>
   </td></tr>
 
@@ -132,7 +135,7 @@
   <tr><td class="px" style="padding:24px 28px 8px 28px;">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="{{ INK }}" style="background:{{ INK }};">
       <tr><td style="padding:18px 20px;">
-        <div style="font-size:15px;font-weight:700;color:#FFFFFF;">Full briefing attached</div>
+        <div style="font-size:15px;font-weight:700;color:#FFFFFF;">{{ pdf_title }} attached</div>
         <div style="font-size:13px;line-height:1.5;color:#C9CDD3;margin-top:4px;">Account profiles with business area, products, the India centre&rsquo;s mandate, and the recommended GCC Origin play for each company (PDF).</div>
       </td></tr>
     </table>

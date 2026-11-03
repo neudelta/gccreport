@@ -24,11 +24,19 @@ Rules:
   Only leave it empty if neither the text nor a Published date gives one.
 - reported_date: the most recent "Published:" date among the source items about this event (the news date).
 - sector: one of BFSI, Technology, Healthcare/Pharma, Retail/CPG, Manufacturing/Auto, Energy, Other.
+  BFSI = banks, insurers, asset/wealth managers, private equity, payments, fintech, exchanges.
+  Technology = software, SaaS, internet, semiconductors, telecom, IT products. Healthcare/Pharma = pharma,
+  biotech, medtech, healthcare services. Retail/CPG = retail, e-commerce, consumer goods, food & beverage,
+  restaurants. Manufacturing/Auto = industrial, automotive, aerospace, electrical/electronics hardware,
+  chemicals, engineering. Energy = oil & gas, utilities, renewables. Use Other only when none fits
+  (e.g. professional services, consulting, logistics, media, real estate).
 - One item PER COMPANY. Articles about government approvals, cabinet decisions, MoUs, letters of comfort or
   investment summits often name several companies (e.g. "the cabinet cleared GCC projects of Havells, LG Soft,
   Ameriprise and MetLife"): output a separate item for EACH named company, with its own city and investment.
   The company is always the business, never the government, ministry, state agency or summit organiser.
-  Such approvals/MoUs are status "announced"; put the stated investment or jobs in headcount.
+  Such approvals/MoUs are status "announced"; put THAT company's own investment or jobs in headcount
+  (e.g. "Rs 112.84 cr"), never the combined total for all companies.
+- headcount: short, e.g. "500 employees", "2,400 roles", "Rs 879 cr"; empty if not stated.
 - Return an empty list if nothing qualifies."""
 
 

@@ -68,7 +68,11 @@ Does NOT qualify: rumours, "in talks", hiring-only news, leadership appointments
 acquisitions, events/conferences, Indian IT-services firms' ordinary offices, opinion/trend pieces, centres
 outside India, and anything whose "company" is not a business: governments, state agencies, ministries,
 universities, industry bodies, or real-estate / IT-park developers announcing space for GCCs.
-Also set event_type/status to what the evidence supports, normalise sector to one of: {', '.join(SECTORS)},
+Also set event_type/status to what the evidence supports, normalise sector to one of: {', '.join(SECTORS)}
+(BFSI = banks, insurers, asset/wealth managers, private equity, payments, fintech; Technology = software, SaaS,
+internet, semiconductors, telecom; Healthcare/Pharma = pharma, biotech, medtech; Retail/CPG = retail, consumer goods,
+food; Manufacturing/Auto = industrial, automotive, aerospace, electrical/electronics hardware, chemicals; Energy =
+oil & gas, utilities, renewables; Other only when none fits),
 and set same_as_prior=true if the candidate describes the same event as one of the listed prior records."""
 
 
@@ -176,12 +180,29 @@ _PLACEHOLDER_CITIES = {"unknown", "not disclosed", "not stated", "n a", "na", "n
                        "multiple", "multiple cities", "undisclosed"}
 
 
+# Words that never name a company on their own: "Global Transport and Logistics" is DSV's tagline, not a firm.
+_GENERIC_WORDS = {
+    "and", "of", "for", "transport", "transportation", "logistics", "solutions", "services", "service", "technology",
+    "technologies", "tech", "systems", "group", "holdings", "consulting", "software", "digital", "data", "engineering",
+    "financial", "finance", "bank", "banking", "insurance", "healthcare", "health", "pharma", "energy", "retail",
+    "business", "operations", "innovation", "hub", "centers", "centres", "multinational", "company", "firm", "us",
+    "uk", "american", "european", "german", "japanese", "french", "british", "swiss", "a", "an", "new", "leading",
+}
+
+
+def is_generic_name(company_key: str) -> bool:
+    tokens = company_key.split()
+    return bool(tokens) and all(t in _GENERIC_WORDS for t in tokens)
+
+
 def precheck(item: GCC, today: date, settings: Settings) -> Optional[str]:
     """Deterministic gate. Returns a rejection reason, or None if it may proceed."""
     if not item.company:
         return "no company name"
     if item.company_key in IT_SERVICES_PROVIDERS:
         return "IT-services provider (competitor), not a captive GCC"
+    if is_generic_name(item.company_key):
+        return "not a company name (generic words only)"
     if not item.city_key or item.city_key.replace("/", " ").replace(".", "") in _PLACEHOLDER_CITIES:
         return "no city stated"
     if item.event_date is None:
@@ -526,7 +547,8 @@ def run(settings: Settings, conn, candidates: list[GCC], today: date) -> tuple[l
         if reason:
             rejected.append(_rej(item, reason))
         elif db.is_duplicate(conn, item):
-            duplicates += 1
+            # known already; collected-but-not-emailed rows come back through the weekly "pending" list
+            duplicates += int(db.is_reported(conn, item))
         else:
             pending.append((item, db.prior_for_company(conn, item.company)))
 
@@ -537,8 +559,10 @@ def run(settings: Settings, conn, candidates: list[GCC], today: date) -> tuple[l
     for (orig, _), (final, reason) in zip(pending, results):
         if final is None:
             rejected.append(_rej(orig, reason))
-        elif db.is_duplicate(conn, final) or any(a.event_key == final.event_key for a in approved):
-            duplicates += 1
+        elif any(a.event_key == final.event_key for a in approved):
+            continue
+        elif db.is_duplicate(conn, final):
+            duplicates += int(db.is_reported(conn, final))
         else:
             approved.append(final)
     return approved, rejected, duplicates
